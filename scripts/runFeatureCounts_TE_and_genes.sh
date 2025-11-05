@@ -19,7 +19,8 @@ set -euo pipefail
 #   --te-strand   One of: unstranded|sense_antisense  (default: unstranded)
 #
 # Notes
-#   - TE is counted with:  -M --fraction  -p --countReadPairs -B -C
+#   - TE is counted with:  -M  -p --countReadPairs -B -C 
+#   - TE argument counting: --fraction — was removed to facilitate integer counting 
 #   - TE default is unstranded (-s 0) to avoid halving signal from antisense TE transcription.
 #   - If you set --te-strand sense_antisense AND your library is stranded (e.g., reverse), we also produce TE-sense and TE-antisense matrices by running -s 2 and -s 1 respectively.
 #
