@@ -154,7 +154,7 @@ RAW_GENE_DIR="${GENE_DIR}/raw_fc_output"
 MAT_GENE_DIR="${GENE_DIR}/count_matrices_fc"
 mkdir -p "$RAW_GENE_DIR" "$MAT_GENE_DIR"
 
-# We reuse your script; it already sets:  -p --countReadPairs -B -C  when -p yes
+# The script sets:  -p --countReadPairs -B -C  when -p yes
 # and does tidy post-processing to sorted_counts_matrix.txt
 $(dirname "$0")/runFeatureCounts.sh \
   -i "$BAM_DIR" \

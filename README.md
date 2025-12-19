@@ -3,7 +3,7 @@
 **Version:** 2.0.0
 **Date:** 2025-12-18
 
-A standardized R toolkit for Transposable Element (TE) analysis in bulk RNA-seq data. This module supports both **combined** (genes + TEs) and **separate** (TE-only) analysis modes, integrating seamlessly with the project's standard 5-phase workflow.
+A toolkit for Transposable Element (TE) analysis in bulk RNA-seq data. This module supports both **combined** (genes + TEs) and **separate** (TE-only) analysis modes.
 
 ---
 
@@ -26,7 +26,6 @@ A standardized R toolkit for Transposable Element (TE) analysis in bulk RNA-seq 
 For a deep dive into the theoretical background, mapping strategies (Random-One vs Fractional), and statistical frameworks (edgeR vs DESeq2 vs limma-voom), please read:
 
 👉 **[Detailed Methodology & Best Practices](docs/METHODOLOGY.md)**
-
 ---
 
 ## Directory Structure

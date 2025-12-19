@@ -1,0 +1,176 @@
+# TE-RNAseq-toolkit Configuration Template
+# Copy this file to your project's config directory and customize
+# Version: 1.0.0
+
+# =============================================================================
+# PROJECT IDENTIFICATION
+# =============================================================================
+project:
+  id: "PROJECT-ID"
+  species: "Mus musculus"  # or "Homo sapiens"
+  description: "Project description"
+
+# =============================================================================
+# TE ANALYSIS SETTINGS
+# =============================================================================
+te_analysis:
+  # Analysis mode: "combined" or "separate"
+  # - combined: Gene and TE counts in single matrix, unified statistical framework
+  # - separate: TE-only analysis with optional library size borrowing from genes
+  mode: "combined"
+
+  # TE grouping levels to analyze
+  # Options: "subfamily", "family", "class"
+  levels:
+    - "subfamily"
+    - "family"
+
+  # TE groups to exclude from enrichment analysis
+  # Common exclusions: "Unspecified", "Unknown", "Other"
+  exclude_groups:
+    - "Unspecified"
+    - "Unknown"
+
+  # Replication location classification
+  # Used for stratifying enrichment results
+  cytoplasmic_classes:
+    - "LINE"
+    - "SINE"
+    - "LTR"
+    - "Retroposon"
+  nuclear_classes:
+    - "DNA"
+    - "RC"
+
+# =============================================================================
+# STATISTICAL PARAMETERS
+# =============================================================================
+statistics:
+  # P-value adjustment method (passed to p.adjust)
+  # Options: "BH" (Benjamini-Hochberg), "bonferroni", "holm", "hochberg", "BY", "fdr"
+  p_adjust_method: "BH"
+
+  # P-value adjustment scope for enrichment
+  # - "all": Adjust across all contrasts and TE groups
+  # - "by_contrast": Adjust within each contrast separately
+  adjust_across: "all"
+
+  # Minimum number of TEs in a group to test enrichment
+  min_group_size: 3
+
+  # Significance thresholds
+  alpha: 0.05
+  lfc_threshold: 0  # logFC threshold for significance annotation
+
+# =============================================================================
+# VISUALIZATION SETTINGS
+# =============================================================================
+visualization:
+  # Contrast grouping for faceted plots
+  # Define groups of contrasts that should appear together
+  # Example: Group by cell type, treatment, timepoint, etc.
+  contrast_groups:
+    # GroupA: ["contrast_1_vs_ctrl", "contrast_2_vs_ctrl"]
+    # GroupB: ["contrast_3_vs_ctrl", "contrast_4_vs_ctrl"]
+
+  # Display labels for contrasts (optional)
+  # Maps internal contrast names to human-readable labels
+  contrast_labels:
+    # contrast_1_vs_ctrl: "Treatment 1"
+    # contrast_2_vs_ctrl: "Treatment 2"
+
+  # Direction labels for single contrast plots
+  direction_labels:
+    positive: "Up-regulated"
+    negative: "Down-regulated"
+
+  # Color palettes
+  colors:
+    # For enrichment dotplots (diverging palette)
+    enrichment_palette: "RdBu"
+    # For heatmaps (sequential palette)
+    heatmap_palette: "viridis"
+    # For TE class annotation
+    class_colors:
+      LINE: "#E41A1C"
+      SINE: "#377EB8"
+      LTR: "#4DAF4A"
+      DNA: "#984EA3"
+      RC: "#FF7F00"
+      Retroposon: "#A65628"
+      Other: "#999999"
+
+  # Plot dimensions (inches)
+  plot_width: 10
+  plot_height: 8
+  plot_dpi: 300
+
+  # Heatmap settings
+  heatmap:
+    cluster_rows: true
+    cluster_cols: true
+    show_rownames: true
+    show_colnames: true
+    fontsize_row: 8
+    fontsize_col: 10
+    scale: "row"  # "row", "column", or "none"
+
+# =============================================================================
+# INPUT/OUTPUT PATHS (project-specific, set in analysis script)
+# =============================================================================
+paths:
+  # These are typically set dynamically in the analysis script
+  # data_dir: "00_data/processed"
+  # results_dir: "03_results"
+  # checkpoints_dir: "03_results/checkpoints"
+  # tables_dir: "03_results/tables"
+  # plots_dir: "03_results/plots"
+
+  # Count matrix filenames (relative to data_dir)
+  gene_counts_file: "gene_counts.txt"
+  te_counts_file: "te_counts.txt"
+  # Or for combined matrix:
+  # combined_counts_file: "combined_gene_TE_counts.tsv"
+
+# =============================================================================
+# ENRICHMENT PLOT DEFAULTS
+# =============================================================================
+enrichment_plot:
+  # Which TE levels to show in multi-level plots
+  te_levels_to_show:
+    - "subfamily"
+    - "family"
+
+  # Size scaling for dotplots
+  size_by: "n_elements"  # or "prop_significant"
+  size_range:
+    - 2
+    - 8
+
+  # P-value threshold for significance outline
+  pval_threshold: 0.05
+
+  # Maximum number of TE groups to display per level
+  max_groups_per_level: 50
+
+  # Sort TE groups by:
+  # Options: "pvalue", "enrichment_score", "n_elements", "alphabetical"
+  sort_by: "pvalue"
+
+# =============================================================================
+# CORRELATION ANALYSIS
+# =============================================================================
+correlations:
+  # Correlation method
+  method: "pearson"  # or "spearman", "kendall"
+
+  # Minimum correlation for display
+  cor_threshold: 0.3
+
+  # P-value threshold for significance
+  pval_threshold: 0.05
+
+  # Pathway/gene set sources to correlate with TEs
+  # pathway_sources:
+  #   - gsea_results  # Use GSEA enrichment scores
+  #   - custom_genesets  # Use custom gene set expression
