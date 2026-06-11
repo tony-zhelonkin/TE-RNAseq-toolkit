@@ -4,7 +4,7 @@ set -euo pipefail
 # runFeatureCounts_TE_and_genes.sh
 #
 # What it does
-#   1) TE counts (featureCounts on SAF; -M --fraction; fragments; default unstranded)
+#   1) TE counts (featureCounts on SAF; -M integer, NO --fraction; fragments; -s 0 standalone default — see strandedness note below)
 #   2) Gene counts (calls your existing runFeatureCounts.sh for GTF; fragments; per-project strandedness)
 #   3) Optionally TE sense/antisense matrices (for stranded libs)
 #   4) Outputs tidy count matrices and an optional combined matrix (genes + TE)
@@ -13,7 +13,7 @@ set -euo pipefail
 #   -i   BAM directory with *.bam (non-recursive)
 #   -o   Output base directory (we’ll create subfolders)
 #   -g   Gene GTF (e.g. gencode.vM37.primary_assembly.annotation.filtered.gtf)
-#   -e   TE SAF (your /data1/shared/ref/.../GRCm39_rmsk_TE_formatted.saf)
+#   -e   TE SAF (grouped, exon-subtracted; e.g. /data1/shared/ref/mouse/Ensembl/mm39/GRCm39_rmsk_TE_GROUPED_all_noExon.saf)
 #   -S   Gene strandedness for featureCounts: 0|1|2   (0=unstranded, 1=forward, 2=reverse)
 #   -t   Threads (default 12)
 #   --te-strand   One of: unstranded|sense_antisense  (default: unstranded)
@@ -21,7 +21,15 @@ set -euo pipefail
 # Notes
 #   - TE is counted with:  -M  -p --countReadPairs -B -C 
 #   - TE argument counting: --fraction — was removed to facilitate integer counting 
-#   - TE default is unstranded (-s 0) to avoid halving signal from antisense TE transcription.
+#   - TE default here is unstranded (-s 0) for STANDALONE TE-family quantification — a defensible
+#     choice that matches the dominant tool's default (TEtranscripts --stranded no). NOTE: "-s 0 =
+#     better TE sensitivity" is UNBENCHMARKED (a sensitivity-for-specificity trade, not a proven
+#     gain; the only both-mode study, Savytska 2022, found stranded FDR <= unstranded). For a JOINT
+#     gene+TE matrix on a stranded library, the more principled (best-practice, not proven-superior)
+#     route is counting TEs at the gene strandedness (e.g. -s 2 for reverse dUTP) so both feature
+#     types share one basis; preserve class-specific bidirectional/antisense TE biology via
+#     --te-strand sense_antisense (below), NOT by collapsing to -s 0. The field is SPLIT on this.
+#     See docs/METHODOLOGY.md "Strandedness: when -s 0 vs stranded" and "Evidence grading".
 #   - If you set --te-strand sense_antisense AND your library is stranded (e.g., reverse), we also produce TE-sense and TE-antisense matrices by running -s 2 and -s 1 respectively.
 #
 # Author: Anton Zhelonkin
