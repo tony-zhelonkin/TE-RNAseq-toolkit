@@ -1,7 +1,7 @@
 # TE-RNAseq-toolkit
 
-**Version:** 2.0.0
-**Date:** 2025-12-18
+**Version:** 2.0.1
+**Date:** 2026-06-11
 
 A toolkit for Transposable Element (TE) analysis in bulk RNA-seq data. This module supports both **combined** (genes + TEs) and **separate** (TE-only) analysis modes.
 
@@ -75,11 +75,21 @@ This toolkit expects counts generated with specific handling for TEs vs Genes:
 
 | Feature | Strandedness | Multi-mappers | Rationale |
 |---------|--------------|---------------|-----------|
-| **Genes** | Library-specific | Excluded | Standard RNA-seq practice. |
-| **TEs** | Unstranded (`-s 0`) | Included (`-M`) | TEs are repetitive and often bidirectional. |
+| **Genes** | Library-specific (`-s 2` for reverse dUTP) | Excluded | Standard RNA-seq practice. |
+| **TEs** | Standalone: `-s 0` (matches the dominant tool's default). Joint stranded matrix: best-practice is to match the genes (`-s 2` here) | Included (`-M`) | See note below. |
+
+**Note on TE strandedness — the field is SPLIT, this is best-practice not a benchmarked standard:**
+There is **no benchmarked "field standard"** for TE strandedness. The two poles are both legitimate: the **dominant tool TEtranscripts/TEcount defaults to UNSTRANDED** (`--stranded no`), while best-practice pipelines (TE-Seq, Mobile DNA 2025) **recommend stranded** for a directional library so TE-derived expression can be resolved from gene expression.
+
+- **For a stranded library + joint gene+TE matrix, the more principled route is stranded TEs matched to the genes** (`-s 2` for reverse dUTP). This is **best-practice / mechanistically motivated, grade B — not a proven-superior standard** [evidence: B — TE-Seq pipeline; the dominant tool TEtranscripts pools/defaults unstranded, so contested].
+- **`-s 0` (unstranded) is a defensible standalone choice** — it matches the most-used tool's default. Caveat: "unstranded → better TE sensitivity" has **NEVER been directly benchmarked**; the only study simulating both modes (Savytska et al. 2022, Front Genet, doi:10.3389/fgene.2022.1026847) found **stranded FDR (54.9%) ≤ unstranded (58.7%)**. Unstranded is a **sensitivity-FOR-specificity trade, never quantified as a gain** [evidence: GAP].
+- **Bidirectional/antisense TE biology is real but class-specific** — established for L1 antisense promoter/ORF0 and LTR/ERV (Criscione 2016; Faulkner 2009), weak/passive for SINE (Alu passengers) and intronic passengers. The often-cited "70%+ of TE loci bidirectional" figure is a **mis-imported genome-wide antisense statistic, not TE-specific** — do not use it. When you want to preserve this signal, use a **stranded sense/antisense split** (count TEs `-s 1` and `-s 2` as separate feature sets, à la SQuIRE) [evidence: B — SQuIRE-specific design], *not* a collapse to `-s 0`, which discards strand and structurally inflates TE counts.
+- (Note: the Teissandier 2019 / Mobile DNA benchmark concerns **multimapper handling**, not strandedness, and does not bear on this choice.) Sources: SQuIRE doi:10.1093/nar/gkz081; TE-Seq doi:10.1186/s13100-025-00381-w; Savytska 2022 doi:10.3389/fgene.2022.1026847; TEtranscripts README.
+
+`-M` is **required** under the Random-One strategy (STAR keeps the `NH>1` flag on the single emitted line, so featureCounts discards it without `-M`). Be aware, though, that full-integer `-M` duplication for TEs against unique-only genes inflates the TE contribution to the library by copy number; no canonical TE tool uses full-integer duplication (they fractionate 1/N or EM-apportion). This compounds the cross-feature non-comparability described below — keep size factors anchored on genes.
 
 **Note on Combined Matrix:**
-Even with asymmetric counting parameters, a combined matrix is valid **IF** exonic TEs were removed from the annotation. A multi-mapping read might be excluded from genes (due to ambiguity) but counted for TEs (due to `-M`), but it will never be counted for both.
+Removing exonic TEs from the annotation eliminates **double-counting** (a multi-mapping read might be excluded from genes due to ambiguity but counted for TEs due to `-M`, yet it will never be counted for both). This is **necessary but not sufficient** for a valid joint matrix. The `-s`/multimapper asymmetry leaves gene and TE rows on different measurement bases, so the combined matrix is valid for **within-feature-type, across-sample differential expression only**, and **only if DESeq2/edgeR size factors are estimated from the genes alone** (e.g. `estimateSizeFactors(controlGenes = isGene)` / TMM on the gene submatrix). It is **not** valid for gene-vs-TE magnitude comparison within a sample, and **"TE % of transcriptome" is not interpretable** as biology (treat it as a QC sanity band only).
 
 ---
 
@@ -97,7 +107,7 @@ source_toolkit("TE-RNAseq-toolkit")
 
 | Scenario | Recommended Mode | Rationale |
 |----------|-----------------|-----------|
-| Exonic TEs removed from SAF | **Combined** | Unified FDR, robust TMM normalization |
+| Exonic TEs removed from SAF | **Combined** | Unified FDR; gene-anchored size factors (estimate from genes only) |
 | Annotations overlap | **Separate** | Conservative, avoids double-counting |
 | "TEtranscripts" pipeline | **Combined** | Designed for combined analysis |
 
@@ -159,3 +169,23 @@ te_analysis:
 ```
 
 See `inst/config/te_config_template.yaml` for a full example.
+
+---
+
+## Changelog
+
+### 2.0.1 — 2026-06-11 (documentation correction)
+Documentation-only correction pass; no code changes. Removed two myths and added missing caveats after a claim-by-claim reconciliation against the assembled evidence:
+- Corrected the "TEs must be counted unstranded (`-s 0`) because they are bidirectional" claim — for a stranded library + joint gene+TE matrix the more principled best-practice is **stranded TEs matched to the genes** (`-s 2` here; grade B, not a benchmarked standard — see the transparency refinement below); `-s 0` is a defensible standalone choice or for non-directional libraries, and bidirectional biology is preserved by a sense/antisense split, not by collapsing strand.
+- Removed the implication that Teissandier 2019 / the Mobile DNA benchmark supports `-s 0`; that benchmark concerns **multimapper handling only** (it remains cited solely for the Random-One/fractional accuracy point).
+- Clarified that exon-subtraction (mutual exclusivity) is **necessary but not sufficient**: the combined matrix is valid for within-feature-type across-sample DE only, and only with **gene-anchored size factors**; gene-vs-TE magnitude and "TE %" are not interpretable.
+- Added that joint size factors must be **anchored on genes** (`controlGenes` / TMM on the gene submatrix), not pooled across genes+TEs.
+- Softened the "lose ~80–90% of TE signal" figure to a young-family-biased fraction (documented multimapper fractions ~10–21%, higher for young L1/SVA/ERV families); the direction (unique-only undercounts) is unchanged.
+- Reframed "optimizes strandedness per feature type" as a tolerated interim trade-off (forfeits cross-feature comparability), not a benefit; added a strandedness guidance subsection to the methodology.
+
+**Transparency / evidence-grading refinement (same 2.0.1 pass, no version bump):**
+- Corrected the over-claim that "stranded is the field standard." The field is **SPLIT**: the dominant tool TEtranscripts **defaults to UNSTRANDED** (`--stranded no`); best-practice pipelines (TE-Seq, Mobile DNA 2025) recommend stranded. Stranded-for-joint is now presented as **best-practice / mechanistically motivated (grade B), not a benchmarked standard**.
+- Flagged the unstranded-sensitivity claim as **unbenchmarked (GAP)**: never measured head-to-head; the only both-mode study (Savytska 2022) found stranded FDR ≤ unstranded — it is a sensitivity-for-specificity trade, not a quantified gain.
+- Removed the "70%+ TE loci bidirectional" framing (mis-imported genome-wide antisense figure); TE bidirectionality is **class-specific** (L1-ASP/ORF0, LTR/ERV established; SINE/intronic weak).
+- Added inline **evidence grades** (A/B/C/D/GAP) to load-bearing claims and a new **"Evidence grading & open questions"** section in METHODOLOGY.md (with an "Open gaps / convention-not-evidence" subsection) plus a "Field trajectory / long reads" note.
+- Stated plainly that the toolkit's `-s 0` TE default is a defensible standalone choice matching the dominant tool's default, that the in-house `s0/s2 ≈ 0.95` gene result is an empirical in-house measurement (not literature), and that stranded counting + sense/antisense split + genes-only size factors is the best-practice (not proven-superior) joint route — an option with its grade, not a mandate.

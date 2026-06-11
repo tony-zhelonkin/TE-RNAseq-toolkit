@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-TE-RNAseq-toolkit (v2.0.0) is an R package for analyzing Transposable Elements (TEs) in bulk RNA-seq data. It supports both **combined** (genes + TEs in one matrix) and **separate** (TE-only) analysis modes, following a 3-phase workflow: Compute → Tables → Visualization.
+TE-RNAseq-toolkit (v2.0.1) is an R package for analyzing Transposable Elements (TEs) in bulk RNA-seq data. It supports both **combined** (genes + TEs in one matrix) and **separate** (TE-only) analysis modes, following a 3-phase workflow: Compute → Tables → Visualization.
 
 ## Running Tests
 
@@ -45,7 +45,7 @@ Rscript examples/2.5.te_visualization.R
 ### Key Design Decisions
 
 - **TE ID Format**: Expects TEtranscripts-style `subfamily:family:class` (e.g., `L1Md_A:L1:LINE`)
-- **Combined Mode**: Unified TMM normalization and FDR control; requires non-overlapping annotations
+- **Combined Mode**: Unified FDR control with shared dispersion; requires non-overlapping annotations. **Size factors must be anchored on genes** (`controlGenes` / TMM on the gene submatrix), not pooled across genes+TEs. Valid for within-feature-type, across-sample DE only — not gene-vs-TE magnitude or "TE %".
 - **Separate Mode**: TE-only analysis with library size borrowing from genes
 - **Statistical Framework**: Uses limma-voom (handles both integer and fractional counts)
 - **Enrichment Testing**: Uses `limma::geneSetTest` for competitive gene set testing
@@ -107,7 +107,7 @@ TE_NUCLEAR_CLASSES <- c("DNA", "RC")                               # DNA transpo
 Before using this toolkit, ensure:
 1. **STAR alignment** used `--outFilterMultimapNmax 100 --outSAMmultNmax 1 --outMultimapperOrder Random` for Random-One strategy
 2. **TE annotation** has exonic regions removed (bedtools subtract) for Combined Mode
-3. **featureCounts** used `-M` for TEs and `-s 0` (unstranded) for TE counting
+3. **featureCounts** used `-M` for TEs (required to retain Random-One multimappers) **[evidence: A]**. **TE strandedness — the field is SPLIT, no benchmarked standard:** the dominant tool TEtranscripts **defaults to UNSTRANDED** (`--stranded no`); TE-Seq/Mobile DNA 2025 recommend stranded. For a **joint gene+TE matrix on a stranded library, the more principled route is counting TEs at the gene strandedness** (`-s 2` for reverse dUTP) — **best-practice (grade B), not a proven-superior standard**. `-s 0` (unstranded) is a **defensible standalone choice** (it matches the dominant tool's default); "unstranded → better TE sensitivity" is **unbenchmarked (GAP)** — the only both-mode study (Savytska 2022) found stranded FDR ≤ unstranded, so it is a sensitivity-for-specificity trade, not a gain. Bidirectional TE biology is **class-specific** (L1-ASP/ORF0, LTR/ERV real; SINE/intronic weak — the "70%+ bidirectional" figure is a mis-imported genome-wide statistic, grade D) and is preserved by a **stranded sense/antisense split [evidence: B — SQuIRE]**, not by collapsing strand. (The Teissandier 2019 / Mobile DNA benchmark concerns multimapper handling, not strandedness.) See `docs/METHODOLOGY.md` → "Evidence grading & open questions."
 
 > **Runnable, env-locked counting workflow:** the post-nf-core TE+gene featureCounts counting
 > step (the `scripts/runFeatureCounts_TE_and_genes.sh` two-pass driver + BAM staging recipe +
