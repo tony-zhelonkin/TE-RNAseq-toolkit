@@ -52,6 +52,15 @@ Allow all alignments and count fractionally.
 **FeatureCounts and unsorted BAMs:**
 STAR’s `--outSAMtype BAM Unsorted` is sufficient. FeatureCounts accepts unsorted BAMs and pairs reads internally, but can also work with sorted data, unlike TEtranscripts which is better suited for unsorted outputs [[2]].
 
+> **Runnable, env-locked counting workflow (SciAgent-toolkit):** the proven post-nf-core
+> TE+gene featureCounts counting workflow — the two-pass `runFeatureCounts_TE_and_genes.sh`
+> driver, the BAM symlink / identical-path Docker staging recipe, and the QC gate — is
+> crystallized as the **`te-gene-featurecounts`** packaged skill, which ships its own pinned
+> container **`te-fc:2.0.2`** (featureCounts **v2.0.2**, the version 13036-DM/14839-DM ran).
+> Note: `scdock-r-dev:v0.5.x` does **NOT** contain featureCounts/subread (only MultiQC's
+> parser); only the locked `te-fc:2.0.2` (and the legacy `scdock-r-dev:v0.2`) ship it. The
+> toolkit's own `scripts/runFeatureCounts*.sh` remain the upstream source of those drivers.
+
 
 ---
 

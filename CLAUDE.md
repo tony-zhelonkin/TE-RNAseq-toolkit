@@ -108,3 +108,11 @@ Before using this toolkit, ensure:
 1. **STAR alignment** used `--outFilterMultimapNmax 100 --outSAMmultNmax 1 --outMultimapperOrder Random` for Random-One strategy
 2. **TE annotation** has exonic regions removed (bedtools subtract) for Combined Mode
 3. **featureCounts** used `-M` for TEs and `-s 0` (unstranded) for TE counting
+
+> **Runnable, env-locked counting workflow:** the post-nf-core TE+gene featureCounts counting
+> step (the `scripts/runFeatureCounts_TE_and_genes.sh` two-pass driver + BAM staging recipe +
+> QC gate) is packaged as the **`te-gene-featurecounts`** skill in the SciAgent-toolkit, with
+> its own pinned container **`te-fc:2.0.2`** (featureCounts **v2.0.2** — the version
+> 13036-DM/14839-DM ran). Use that image (or the legacy `scdock-r-dev:v0.2`) to run counting;
+> **`scdock-r-dev:v0.5.x` does NOT contain featureCounts/subread**. The toolkit's own
+> `scripts/runFeatureCounts*.sh` stay the upstream drivers (vendored, not modified, by the skill).
