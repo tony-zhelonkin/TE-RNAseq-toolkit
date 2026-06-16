@@ -1,12 +1,15 @@
 # Integrating Gene and Transposable Element RNA-seq Analysis
 
-This document is an overview of the theoretical considerations, decision points, and alternative strategies for integrating Transposable Element (TE) analysis into RNA-seq workflows. It expands on the "Quick Start" in the README to cover *why* specific choices were made and *how* to interpret the results.
+This document is an overview of the theoretical considerations, decision points, and alternative strategies for integrating Transposable Element (TE) analysis into RNA-seq workflows. 
+It expands on the "Quick Start" in the README to cover *why* specific choices were made and *how* to interpret the results.
 
 > **Documentation correction (2026-06-11):** This document was revised to remove two myths and add missing caveats after a claim-by-claim reconciliation against the assembled evidence. Key corrections: (i) `-s 0` is **not** a universal requirement for TEs — for a stranded library + joint gene+TE matrix, counting TEs at the **same strandedness as the genes** (`-s 2` here) is the more principled best-practice (not a benchmarked standard — the field is split, see below), and bidirectional biology is preserved via a sense/antisense split rather than by collapsing strand; (ii) Teissandier 2019 (Mobile DNA, ref [[1]]) benchmarks **multimapper handling**, not strandedness, and is cited here only for the Random-One/fractional accuracy point; (iii) the combined matrix is valid only for within-feature-type DE with **gene-anchored size factors**, not for cross-feature magnitude; (iv) joint size factors must be anchored on genes, not pooled. **Transparency refinement (same date):** every load-bearing claim now carries an explicit **evidence grade** (A/B/C/D/GAP) — see the new "Evidence grading & open questions" section — and the earlier "stranded is the field standard" wording is corrected (the field is SPLIT: the dominant tool TEtranscripts defaults UNSTRANDED). See the "Strandedness" subsection below and the Changelog.
 
 ## Mapping and Counting Strategies for Transposable Elements (TEs)
 
-**Multi-mapping reads require special handling:** Unlike most mRNAs, TE-derived reads often map to many loci due to repetitive sequences. This creates the **Multi-Mapping Problem**: standard RNA-seq aligners (which discard non-unique reads) will systematically blind you to the majority of TE expression. A standard RNA-seq alignment (which keeps only one alignment per read or discards multi-mappers) will **underestimate TE expression** [[1]]. 
+**Multi-mapping reads require special handling:** Unlike most mRNAs, TE-derived reads often map to many loci due to repetitive sequences. 
+This creates the **Multi-Mapping Problem**: standard RNA-seq aligners (which discard non-unique reads) will systematically blind you to the majority of TE expression. 
+A standard RNA-seq alignment (which keeps only one alignment per read or discards multi-mappers) will **underestimate TE expression** [[1]]. 
 
 ### The Two Extremes of Bias
 1.  **Unique-Only (Undercounting)**: If you discard multi-mappers (default in many gene pipelines), you lose a substantial, **young-family-biased** fraction of TE signal — documented multimapper fractions are ~10–21% overall (ENCODE analysis) and much higher for young families (e.g. L1HS/AluY/SVA), while old, diverged families are affected modestly. The exact loss is family/read-length/library dependent, so a single blanket percentage is not warranted; the direction (unique-only systematically undercounts young families) is robust. This is generally **unacceptable** for TE analysis [[1]].
@@ -23,6 +26,8 @@ In STAR, use `--outMultimapperOrder Random` *and* limit each read to one alignme
 *   **STAR Flags**: `--outFilterMultimapNmax 100 --outMultimapperOrder Random --outSAMmultNmax 1`, i.e. limit each read to one alignment
 *   **Counting:** Downstream counting (e.g., featureCounts) can treat all reads normally (integers).
 *   **Result:** Each read is assigned wholly to a single locus chosen at random.
+*   **In-house provenance (A5):** the 14839-DM/13036-DM runs are **integer Random-One — no `--fraction`** — and the gene-vs-TE kernels differ. The **GENE** pass dropped **111,888,517 multimapper pairs** (unique-only, no `-M`, MultiMapping bucket populated); **every TE** pass is `-M` (MultiMapping bucket = 0). Random-one integer ≈ `-M --fraction` for family-level quantification (Teissandier 2019, grade A — see the multimapper-kernel line above, not re-cited). This kernel difference is the basis of the gene-vs-TE caveat in §Combined and the `FLAG-KERNEL-MISMATCH` flag in [`QC.md`](./QC.md).
+*   **Random-One is BAM-witnessed and the SENSE matrix is fragment-weighted (A8). [evidence: A — whole-BAM, 3 samples.]** The integer Random-One kernel is no longer only a config pin: under `--outSAMmultNmax 1` each fragment emits exactly one locus while `NH` records true multiplicity, and direct BAM inspection confirms **0 fragments emit >1 locus** (0/3,775,221 NH>1 frags on 0019; 0 on 0001/0033). Consequently the delivered SENSE (`-s 2`) integer matrix is **fragment-weighted** — `matrix == distinct-fragment count` for every subfamily (matrix/ΣNH = 0.06 for IAPEz) — so young high-copy families are **not** alignment-inflated. The counterfactual: an alignment-weighted run would have inflated young families by their mean multiplicity (young-set `meanNH = 5.08`; **IAPEz 16.6×**, MMERVK10C 9.4×) — averted, not realized. See [`QC.md` §9](./QC.md) (kernel-tracer + fragment-weighting theorem + the counterfactual-risk pattern) and `FLAG-ALIGNMENT-WEIGHTED`.
 *   **Accuracy:** This *random one-location* approach recovers TE expression accurately (correlation ~1 with true values benchmarks) [[1]].
 *   **Pros**:
     *   Produces **integer counts**, compatible with all DE tools (DESeq2, edgeR, limma).
@@ -52,7 +57,8 @@ Allow all alignments and count fractionally.
 *   **Cons**: often slower; might have limitations to the design complexity, e.g. TEtranscripts internally allows for only simple pair-wise comparisons of type A vs B.
 
 **FeatureCounts and unsorted BAMs:**
-STAR’s `--outSAMtype BAM Unsorted` is sufficient. FeatureCounts accepts unsorted BAMs and pairs reads internally, but can also work with sorted data, unlike TEtranscripts which is better suited for unsorted outputs [[2]].
+STAR’s `--outSAMtype BAM Unsorted` is sufficient. FeatureCounts accepts unsorted BAMs and pairs reads internally, but can also work with sorted data, 
+unlike TEtranscripts which is better suited for unsorted outputs [[2]].
 
 > **Runnable, env-locked counting workflow (SciAgent-toolkit):** the proven post-nf-core
 > TE+gene featureCounts counting workflow — the two-pass `runFeatureCounts_TE_and_genes.sh`
@@ -66,14 +72,31 @@ STAR’s `--outSAMtype BAM Unsorted` is sufficient. FeatureCounts accepts unsort
 
 ### Strandedness: when `-s 0` vs stranded — the field is SPLIT
 
-Strand choice is a separate axis from the multimapper choice above, and is frequently mis-stated. **There is no benchmarked "field standard" for TE strandedness — the field genuinely splits**, and this section presents the two poles with their evidence grades rather than mandating one.
+Strand choice is a separate axis from the multimapper choice above, and is frequently mis-stated. 
+Importantly, **there is no benchmarked "field standard" for TE strandedness — the field genuinely splits**, and this section presents the two poles 
+with their evidence grades rather than mandating one.
 
-- **The split, stated honestly:** the **dominant tool TEtranscripts/TEcount defaults to UNSTRANDED** (`--stranded no`), while best-practice pipelines (**TE-Seq, Mobile DNA 2025**) **recommend stranded** for a directional library so TE-derived expression can be resolved from gene expression. This is a real **default-vs-best-practice split**, not a settled standard.
-- **For a stranded library + joint gene+TE matrix, the more principled route is stranded TEs matched to the genes** (`-s 2` for a reverse dUTP library) — matching tool, strandedness, and multimapper policy across genes and TEs keeps them on a comparable basis. **[evidence: B — best-practice / mechanistically motivated (TE-Seq; atena default `strandMode=1`); TEtranscripts pools and defaults unstranded, so contested — NOT a benchmarked standard].** The one study simulating both modes reports stranded FDR (54.9%) ≤ unstranded (58.7%) (Savytska 2022), so the limited direct evidence does not contradict the best-practice choice — but it is FDR-only, single-study, simulation.
-- **`-s 0` (unstranded) is a defensible standalone choice** for (a) **standalone TE-family quantification** (it matches the dominant tool's default) or (b) a **genuinely non-directional library**. **The "unstranded → better TE sensitivity" claim has NEVER been directly benchmarked [evidence: GAP].** The only both-mode study (Savytska 2022) found stranded FDR ≤ unstranded; unstranded is a **sensitivity-FOR-specificity trade, never quantified as a gain**. `-s 0` is **not** a universal requirement, but it is **not "wrong"** either.
-- **Bidirectional / antisense TE biology is real but CLASS-SPECIFIC, not universal.** Established for **L1 antisense promoter (ASP) / ORF0 and LTR/ERV** (Criscione 2016, BMC Genomics doi:10.1186/s12864-016-2800-5; Faulkner 2009, Nat Genet doi:10.1038/ng.368); **weak/passive for SINE (Alu passengers) and intronic passengers** [evidence: C — class-specific mechanism]. The commonly cited **"70%+ of TE loci are bidirectional" figure is a mis-imported genome-wide antisense statistic, not TE-specific [evidence: D] — do not use it.** The information-preserving way to keep genuine antisense signal is a **stranded sense/antisense split** (count TEs `-s 1` and `-s 2` as two separate feature sets, à la SQuIRE) **[evidence: B — SQuIRE-specific design]**, **not** collapsing to `-s 0`, which discards the strand that separates autonomous TE transcription from host read-through and structurally inflates TE counts.
-- **The Teissandier 2019 / Mobile DNA benchmark (ref [[1]]) does not bear on this choice:** it benchmarks **multimapper handling** (unique vs random-one vs fractional), never strandedness. Cite it for Random-One/fractional accuracy only **[evidence: A]**.
-- **Empirically (in-house, not literature), strand choice is nearly count-neutral for genes.** On an in-house reverse-stranded dataset (14839-DM), the gene-level ratio `s0/s2 ≈ 0.95` — an **empirical in-house measurement, not a literature value** — (unstranded assigns ~5% *fewer* gene reads, because it loses antisense-overlapping gene pairs to ambiguity that `-s 2` disambiguates), and `s1/s2 ≈ 0.10` (forward = noise). So the "unstranded counts much more" intuition does **not** apply to genes — the both-strand magnitude question lives entirely on the **TE** side (genuine both-strand transcription), which is exactly why a mismatched gene `-s 2` / TE `-s 0` pairing breaks cross-feature magnitude comparability.
+- **The split:** the **dominant tool TEtranscripts/TEcount defaults to UNSTRANDED** (`--stranded no`), while best-practice pipelines (**TE-Seq, Mobile DNA 2025**) 
+**recommend stranded** for a directional library so TE-derived expression can be resolved from gene expression. 
+
+This seems to be genuinly unresolved **split**, not a settled standard.
+- **For a stranded library + joint gene+TE matrix, the more principled route seems to be stranded TEs matched to the genes** (`-s 2` for a reverse dUTP library) — matching tool, strandedness, and multimapper policy across genes and TEs keeps them on a comparable basis. **[evidence: B — best-practice / mechanistically motivated (TE-Seq; atena default `strandMode=1`); 
+TEtranscripts pools and defaults unstranded, so contested — NOT a benchmarked standard].** The one study simulating both modes reports stranded FDR (54.9%) ≤ unstranded (58.7%) (Savytska 2022), so the limited direct evidence does not contradict the best-practice choice — but it is FDR-only, single-study, simulation.
+- **`-s 0` (unstranded) is a defensible standalone choice** for:
+(a) **standalone TE-family quantification** (it matches the dominant tool's default) 
+or (b) a **genuinely non-directional library**. 
+**The "unstranded → better TE sensitivity" claim has NEVER been directly benchmarked [evidence: GAP].** 
+The only both-mode study (Savytska 2022) found stranded FDR ≤ unstranded; unstranded seems to be therefor **sensitivity-FOR-specificity trade, never quantified as a gain**. 
+`-s 0` is **not** a universal requirement, but it is **not "wrong"** either.
+- **Bidirectional / antisense transcription TE biology is CLASS-SPECIFIC, not universal.** Established for **L1 antisense promoter (ASP) / ORF0 and LTR/ERV** (Criscione 2016, BMC Genomics doi:10.1186/s12864-016-2800-5; Faulkner 2009, Nat Genet doi:10.1038/ng.368); 
+**weak/passive for SINE (Alu passengers) and intronic passengers** [evidence: C — class-specific mechanism]. The commonly cited idea of **"70%+ of TE loci are bidirectional" is a mis-imported genome-wide antisense statistic, not TE-specific [evidence: D] — do not use it.** 
+The information-preserving way to keep genuine antisense signal is a **stranded sense/antisense split** (count TEs `-s 1` and `-s 2` as two separate feature sets, à la SQuIRE) **[evidence: B — SQuIRE-specific design]**, **not** collapsing to `-s 0`, which discards the strand that separates autonomous TE transcription from host read-through and structurally inflates TE counts.
+- **The Teissandier 2019 / Mobile DNA benchmark (ref [[1]]) does not bear on this choice:** it benchmarks **multimapper handling** (unique vs random-one vs fractional), never strandedness. 
+Cite it for Random-One/fractional accuracy only **[evidence: A]**.
+- **Empirically (in-house, not literature), strand choice is nearly count-neutral for genes.** 
+On an in-house reverse-stranded dataset (14839-DM), the gene-level ratio `s0/s2 ≈ 0.95` — an **empirical in-house measurement, not a literature value** — 
+(unstranded assigns ~5% *fewer* gene reads, because it loses antisense-overlapping gene pairs to ambiguity that `-s 2` disambiguates), and `s1/s2 ≈ 0.10` (forward = noise). 
+So the "unstranded counts much more" intuition does **not** apply to genes — the both-strand magnitude question lives entirely on the **TE** side (genuine both-strand transcription), which is exactly why a mismatched gene `-s 2` / TE `-s 0` pairing breaks cross-feature magnitude comparability.
 
 ---
 
@@ -85,7 +108,7 @@ Should genes and TEs be analyzed in the same matrix?
 Literature suggests a combined approach can be beneficial [[1]].
 
 ### 1. Shared Normalization and Dispersion
-*   **Normalization (anchor size factors on genes) [evidence: B — TE-Seq recommends genes-only; TEtranscripts pools, so contested]:** Size factors are best estimated from the **genes alone** (e.g. `estimateSizeFactors(controlGenes = isGene)`, or TMM computed on the gene submatrix) rather than pooled across genes+TEs. The long-tailed, multimapper-inflated TE minority violates the "most features are unchanged" assumption that TMM/RLE rely on, and a pooled estimate can drag the gene log-fold-changes. Pooling genes+TEs into one size-factor estimate is acceptable only when the TE signal is modest. Having the TEs *present in the same object* (so the design and dispersion are shared) is the benefit of combined mode — pooling them into the *size-factor estimate* is not.
+*   **Normalization (anchor size factors on genes) [evidence: B — TE-Seq recommends genes-only; TEtranscripts pools, so contested]:** Size factors are best estimated from the **genes alone** (e.g. `estimateSizeFactors(controlGenes = isGene)`, or TMM computed on the gene submatrix) rather than pooled across genes+TEs. The long-tailed, multimapper-inflated TE minority violates the "most features are unchanged" assumption that TMM/RLE rely on, and a pooled estimate can drag the gene log-fold-changes. Pooling genes+TEs into one size-factor estimate is acceptable only when the TE signal is modest. Having the TEs *present in the same object* (so the design and dispersion are shared) is the benefit of combined mode — pooling them into the *size-factor estimate* is not. **Kernel caveat (A5):** the gene matrix is **unique-only (no `-M`** — 111,888,517 multimapper pairs dropped) while the TE matrices are **`-M` integer Random-One** (MultiMapping bucket = 0). These are different counting kernels. Gene-derived size factors are correct **for gene DE** (multimappers are genuinely unassignable to one gene), but the TE matrix's library scale includes `-M` TE signal the gene factors never saw ⇒ **gene size factors ≠ TE library scale**; do not apply them to the TE matrix unqualified. Keep TE normalization on a TE-appropriate (or spike/total) basis, or at minimum document the mismatch. **[evidence: A — kernel provenance, in-house per-read witness; B — genes-only contested per the existing grade.]** See the strand-split QC flag `FLAG-KERNEL-MISMATCH` in [`QC.md`](./QC.md).
 *   **Dispersion:** ~78k genes inform the mean-variance trend, stabilizing dispersion estimates for the smaller set of TEs.
 *   **Shared Dispersion**: The ~78k gene features help estimate the variance trend for the ~1.2k TE features, stabilizing p-values.
 ### 2. Unified FDR Control
@@ -97,7 +120,13 @@ Literature suggests a combined approach can be beneficial [[1]].
 
 **Prerequisite for the Combined Analysis**: Annotations must not overlap.
 *   *Solution*: This toolkit assumes you have subtracted exon regions from the TE SAF. This ensures no read is double-counted.
-*   *This is necessary but not sufficient.* Removing double-counting does **not** by itself make the matrix fully comparable across feature types. If genes and TEs were counted on different bases (e.g. gene `-s 2` unique-only vs TE `-s 0` `-M`), the gene and TE rows sit on different measurement bases. The combined matrix is then valid for **within-feature-type, across-sample differential expression only**, and **only with size factors estimated from genes alone** (see Normalization above). It is **not** valid for gene-vs-TE magnitude comparison within a sample (the no-cross-feature-magnitude rule is **grade C — inference**, not a cited TE-primary standard), and **"TE % of transcriptome" is not interpretable** as biology — treat it as a QC sanity band, not a biological fraction. (The more principled fix, best-practice grade B not proven-superior, is to recount TEs at the gene strandedness, `-s 2`, so both feature types share one basis.)
+*   *This is necessary but not sufficient.* Removing double-counting does **not** by itself make the matrix fully comparable across feature types. 
+If genes and TEs were counted on different bases (e.g. gene `-s 2` unique-only vs TE `-s 0` `-M`), the gene and TE rows sit on different measurement bases. 
+The combined matrix is then valid for **within-feature-type, across-sample differential expression only**, and **only with size factors estimated from genes alone** (see Normalization above). 
+It is **not** valid for gene-vs-TE magnitude comparison within a sample (the no-cross-feature-magnitude rule is **grade C — inference**, 
+not a cited TE-primary standard), and **"TE % of transcriptome" is not interpretable** as biology — treat it as a QC sanity band, not a biological fraction. 
+(The more principled fix, best-practice grade B not proven-superior, is to recount TEs at the gene strandedness, `-s 2`, so both feature types share one basis.)
+Beyond strandedness, the row-bound joint matrix also **mixes two counting kernels**: the TE rows are `-M` (a multimapper contributes to *all* its loci) and the gene rows are unique-only (a multimapper contributes to *none*). A TE count and a gene count in one column are therefore not on the same per-fragment basis ⇒ **any gene-vs-TE ratio or "fraction of library in TEs vs genes" is kernel-inconsistent — flag, do not report. [evidence: A — kernel provenance.]** (See [`QC.md`](./QC.md) flag `FLAG-KERNEL-MISMATCH`.)
 
 ## Gene vs TE overlapping reads
 Reads mapping to TEs within genes (introns/UTRs) can be double-counted.
@@ -261,6 +290,13 @@ These are where the field runs on convention, simulation, or inference rather th
 ---
 
 ## Changelog
+
+### 2.0.2 — 2026-06-15 (kernel/normalization caveat + QC cross-ref)
+Documentation-only pass; no changes to `R/` or `scripts/` code. Added the gene-vs-TE kernel caveat and pinned the integer Random-One provenance after the strand-split overlap-ambiguity reconciliation:
+- Normalization: added the gene (unique-only, no `-M`, 111,888,517 multimapper pairs dropped) vs TE (`-M` integer Random-One, MultiMapping = 0) kernel caveat (A5) — gene size factors ≠ TE library scale; do not apply them to the TE matrix unqualified.
+- Combined matrix: noted that the row-bound joint matrix mixes two kernels (TE `-M` vs gene unique-only), so any gene-vs-TE ratio / "fraction of library" is kernel-inconsistent (flag, do not report).
+- Strategy A: stated the in-house runs are integer Random-One (no `--fraction`) and pinned the gene-vs-TE `-M` provenance (pointing to the existing Teissandier line, not re-cited).
+- Cross-referenced the new [`docs/QC.md`](./QC.md) (strand-split invariant, directional meter, `-R CORE` witness, axioms A1–A6, warning-flag taxonomy, GREEN/RED gate) and its `FLAG-KERNEL-MISMATCH` flag.
 
 ### 2.0.1 — 2026-06-11 (documentation correction)
 Documentation-only pass; no changes to `R/` or `scripts/` code. Removed two myths and added missing caveats after a claim-by-claim reconciliation against the assembled evidence:
