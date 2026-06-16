@@ -1,26 +1,56 @@
 # Limitations: What This Instrument Can and Cannot Claim
 
-This is the **boundary document**. It names the inferential limits of the TE quantification this toolkit performs and where a result stops being supported by the design. For the *why* behind the design choices (strandedness, multimapper kernel, joint matrix, normalization), and for the evidence grades and citations those choices rest on, see [`METHODOLOGY.md`](./METHODOLOGY.md). Grades below use that document's **A/B/C/D/GAP** scale and its citations are not restated here.
+This is the **boundary document**. 
+It names the inferential limits of the TE quantification this toolkit performs and where a result stops being supported by the current design. 
+For the *why* behind the design choices (strandedness, multimapper kernel, joint matrix, normalization), 
+and for the evidence grades and citations those choices rest on, see [`METHODOLOGY.md`](./METHODOLOGY.md). 
+
+Grades below use that document's **A/B/C/D/GAP** scale and its citations are not restated here.
 
 ## The instrument, in one line
 
-featureCounts on a grouped, exon-subtracted SAF where `GeneID = Subfamily:Family:Class` (1,243 mouse subfamilies), STAR Random-One + integer `-M` (no `--fraction`), counted in three strand channels — sense `-s 2` (gene-matched), antisense `-s 1` (separate channel), unstranded `-s 0` (comparison). The joint gene+TE matrix row-binds genes (`-s 2`) and TE-sense (`-s 2`) as mutually exclusive features, normalized with genes-only size factors (`estimateSizeFactors(controlGenes = isGene)`).
+featureCounts on a grouped, exon-subtracted SAF where 
+* `GeneID = Subfamily:Family:Class` (1,243 mouse subfamilies), 
+* STAR Random-One + integer `-M` (no `--fraction`), 
+* counted in three strand channels — sense `-s 2` (gene-matched), antisense `-s 1` (separate channel), unstranded `-s 0` (comparison). 
 
-**The resolution this buys, and only this:** SUBFAMILY resolution. The grouped SAF carries **no genic context** (intergenic / intronic / adjacent) and **no locus identity** (which copy at which address). Those axes were deliberately thrown away at SAF-build time. Every limitation below is downstream of that one fact.
+The joint gene+TE matrix row-binds genes (`-s 2`) and TE-sense (`-s 2`) as mutually exclusive features, 
+with **no normalization applied at this stage — the delivered matrix is raw integer counts.**
+The *recommended* downstream normalization anchors per-sample scaling on the **gene rows only** —
+DESeq2 `estimateSizeFactors(dds, controlGenes = isGene)`, or equivalently edgeR `calcNormFactors(method = "TMM")`
+on a genes-only `DGEList` with its factors transplanted onto the combined object (`filterByExpr` per feature type) —
+so a genuine en-masse TE shift cannot be absorbed into the size factor.
+
+**What this buys, and only this:** SUBFAMILY resolution. 
+The grouped SAF carries **no genic context** (intergenic / intronic / adjacent) and **no locus identity** (which copy at which address). 
+Those axes were deliberately thrown away at SAF-build time. Every limitation below is downstream of the genic context throwaway.
 
 ---
 
 ## 1. Matching the strand basis is NECESSARY, not SUFFICIENT
 
-Counting TEs at the gene strandedness (`-s 2` sense, matched to the `-s 2` gene denominator) buys two **distinct** things that happened to ride on the same `-s 2` flag. Do not conflate them.
+Counting TEs at the gene strandedness (`-s 2` sense, matched to the `-s 2` gene denominator) buys two **distinct** things 
+that happened to ride on the same `-s 2` flag. It's important not to conflate them.
 
 ### (a) MEASUREMENT axis — a valid ruler for normalization. **SURVIVES.**
 
-A per-sample size factor `s_j` says "sample *j*'s gene counts are inflated/deflated by this much, in the units genes are measured in." Dividing a TE row by `s_j` **asserts** the TE row is measured in those same units — that genes and TEs accrue counts from true library depth at the same per-sample rate. Matching the strand basis is what makes that assertion defensible. A stranded derepression study should therefore **not** normalize an unstranded TE numerator against a stranded gene denominator. The benefit is not in *how* the size factor is computed; it is in whether that size factor is the **right ruler** to apply to the TE rows. **[evidence: B — matched-basis best-practice; see METHODOLOGY §Strandedness and §Combined.]**
+A per-sample size factor `s_j` says "sample *j*'s gene counts are inflated/deflated by this much, in the units genes are measured in." 
+Dividing a TE row by `s_j` **asserts** the TE row is measured in those same units — that genes and TEs accrue counts from true library depth 
+at the same per-sample rate. Matching the strand basis seems, at least to me, internally defensible. 
+
+A stranded derepression study should be careful to **not** normalize an unstranded TE numerator against a stranded gene denominator. 
+The logic is: are you even using the right *measurement ruler*? The way the size factor was computed determines if you can apply the ruler to the TE rows.
+**[evidence: B — matched-basis best-practice; see METHODOLOGY §Strandedness and §Combined.]**
 
 ### (b) BIOLOGY axis — the autonomous-vs-read-through verdict. **DOWNGRADED.**
 
-At subfamily resolution the antisense split gives strand **asymmetry**, not an autonomy verdict. The `-s 1` channel is a strand-of-read aggregate over a whole subfamily; it becomes a verdict only when paired with the genic-context and locus axes the grouped SAF deliberately discarded (§5). **[evidence: C — inference; the verdict-grade form is TE-Seq's three-axis design, not this instrument's.]**
+At subfamily resolution the antisense split gives strand **asymmetry**, not an autonomy verdict. 
+The `-s 1` channel is a strand-of-read aggregate over a whole subfamily.
+It may become a verdict on the autonomous vs read-through TE element only when paired with: 
+- the genic-context 
+- and locus axes...
+... the grouped SAF method I usually employ for subfamily aggregate resolution deliberately discards (§5). 
+**[evidence: C — inference; the verdict-grade form is TE-Seq's three-axis design, not this repo.]**
 
 The whole point: matching the strand basis earns you (a) outright and only a *signal* (asymmetry) on (b) — never the *verdict*.
 
