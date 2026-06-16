@@ -19,8 +19,11 @@ set -euo pipefail
 #   --te-strand   One of: unstranded|sense_antisense  (default: unstranded)
 #
 # Notes
-#   - TE is counted with:  -M  -p --countReadPairs -B -C 
-#   - TE argument counting: --fraction — was removed to facilitate integer counting 
+#   - TE is counted with:  -M  -p --countReadPairs -B -C
+#   - TE multi-mapper counting is INTEGER Random-One everywhere (one kernel): -M, NO --fraction,
+#     on the primary, sense, AND antisense passes. Integer because STAR Random-One emits one
+#     alignment/read; the fractional route is a non-default alternative (STAR --outSAMmultNmax 100
+#     + -M --fraction → non-integer; see docs/METHODOLOGY.md Strategy B).
 #   - TE default here is unstranded (-s 0) for STANDALONE TE-family quantification — a defensible
 #     choice that matches the dominant tool's default (TEtranscripts --stranded no). NOTE: "-s 0 =
 #     better TE sensitivity" is UNBENCHMARKED (a sensitivity-for-specificity trade, not a proven
@@ -105,7 +108,7 @@ join_bams() {
 }
 
 # --------------------------- TE COUNTS (first) ---------------------------
-echo "[TE] Counting TEs (fractional multi-mappers; fragments)..."
+echo "[TE] Counting TEs (integer Random-One multi-mappers; -M -s 0; fragments)..."
 
 # Unstranded matrix
 TE_RAW="${TE_DIR}/te_counts_raw.txt"
@@ -141,15 +144,17 @@ if [[ "$TE_STRAND_MODE" == "sense_antisense" ]]; then
   else
     if [[ "$GENE_STRAND" == "2" ]]; then SENSE_S=2; ANTISENSE_S=1; else SENSE_S=1; ANTISENSE_S=2; fi
 
+    # Integer Random-One (NO --fraction): STAR emits one alignment/read. Fractional is a
+    # non-default alternative (STAR --outSAMmultNmax 100 + -M --fraction; see docs/METHODOLOGY.md Strategy B).
     TE_RAW_S="${TE_DIR}/te_counts_sense_raw.txt"
     TE_MAT_S="${TE_DIR}/te_counts_sense_matrix.txt"
-    featureCounts -M --fraction -F SAF -a "$TE_SAF" -o "$TE_RAW_S" -s $SENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
+    featureCounts -M -F SAF -a "$TE_SAF" -o "$TE_RAW_S" -s $SENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
     awk 'BEGIN{FS=OFS="\t"} NR==1{next} NR==2{printf "Geneid"; for(i=7;i<=NF;i++){split($i,a,"/"); split(a[length(a)],b,"."); printf "\t" b[1]} printf "\n"; next} {printf $1; for(i=7;i<=NF;i++) printf "\t" $i; printf "\n"}' "$TE_RAW_S" > "$TE_MAT_S"
     echo "[TE] Sense matrix -> $TE_MAT_S"
 
     TE_RAW_A="${TE_DIR}/te_counts_antisense_raw.txt"
     TE_MAT_A="${TE_DIR}/te_counts_antisense_matrix.txt"
-    featureCounts -M --fraction -F SAF -a "$TE_SAF" -o "$TE_RAW_A" -s $ANTISENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
+    featureCounts -M -F SAF -a "$TE_SAF" -o "$TE_RAW_A" -s $ANTISENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
     awk 'BEGIN{FS=OFS="\t"} NR==1{next} NR==2{printf "Geneid"; for(i=7;i<=NF;i++){split($i,a,"/"); split(a[length(a)],b,"."); printf "\t" b[1]} printf "\n"; next} {printf $1; for(i=7;i<=NF;i++) printf "\t" $i; printf "\n"}' "$TE_RAW_A" > "$TE_MAT_A"
     echo "[TE] Antisense matrix -> $TE_MAT_A"
   fi
