@@ -38,6 +38,7 @@ For a deep dive into the theoretical background, mapping strategies (Random-One 
 For the **biology** the design rests on — TEs, transcription strand, read-through, bidirectional transcription, derepression — see 👉 **[Biology primer](docs/BIOLOGY.md)** (the biology single-source-of-truth).
 
 Start with the result, then with **[Limitations](docs/LIMITATIONS.md)**: it holds the [escalation map](docs/LIMITATIONS.md#escalation-map) — what a result lets you claim (the [claim ladder](docs/LIMITATIONS.md#claim-ladder)) and when to reach for more (the [decision table](docs/LIMITATIONS.md#decision-table)). It names how far this toolkit takes you and when to escalate to a richer SAF (Simplified Annotation Format), an EM tool, or the wet lab.
+
 ---
 
 ## Directory Structure
