@@ -1,7 +1,7 @@
 # TE-RNAseq-toolkit
 
-**Version:** 2.0.1
-**Date:** 2026-06-11
+**Version:** 2.0.3
+**Date:** 2026-06-17
 
 A toolkit for Transposable Element (TE) analysis in bulk RNA-seq data. This module supports both **combined** (genes + TEs) and **separate** (TE-only) analysis modes.
 
@@ -11,7 +11,7 @@ A toolkit for Transposable Element (TE) analysis in bulk RNA-seq data. This modu
 
 It is deliberately minimal: STAR Random-One + featureCounts produce a clean **integer** count matrix of TE subfamilies, and the toolkit hands you that matrix and stops — **you own the statistical model.** Most TE tools bundle their differential expression and lock it to a two-group comparison (TEtranscripts, SQuIRE) or an additive condition-only design (TE-Seq); emitting a raw integer matrix instead lets the counts drop straight into edgeR / limma / DESeq2 with *any* design — 2×2 factorial, interactions, blocking, random effects, arbitrary contrasts. That freedom is not unique to featureCounts — atena, Telescope, TEcount, and SQuIRE's `--table_only` all emit matrices you can model yourself; what this toolkit adds is a **clean integer** matrix (no rounding of fractional or EM weights) paired with transparent, evidence-graded methodology, a strand sense/antisense channel, and a documented QC gate.
 
-It is **complementary to, not a replacement for, the heavier pipelines.** Reach for TE-Seq / Telescope when you need locus identity and a bundled three-axis autonomy verdict; reach for this toolkit when you want a robust subfamily-level read-out that plugs into your own design and your own stats, with every choice graded and the boundaries named (see [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md)). Random-One trades away locus-level resolution for that robustness and simplicity — a deliberate choice, not an oversight.
+The honest cost of that freedom: for a standard locus-level autonomy call, a baked pipeline (TE-Seq / Telescope) may serve you better — it owns the design you would otherwise rebuild by hand, and it gives you locus identity. Random-One trades locus-level resolution for subfamily-level robustness and simplicity. The crossover is named in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md#design-freedom): a complex design on a subfamily / strand question lands here; a standard locus-level autonomy call lands on a baked pipeline.
 
 ---
 
@@ -35,7 +35,9 @@ For a deep dive into the theoretical background, mapping strategies (Random-One 
 
 👉 **[Detailed Methodology & Best Practices](docs/METHODOLOGY.md)**
 
-For the **biology** the design rests on — TEs, transcription strand, read-through, bidirectional transcription, derepression — see 👉 **[Biology primer](docs/BIOLOGY.md)** (the biology single-source-of-truth). The inferential limits are in 👉 **[Limitations](docs/LIMITATIONS.md)**.
+For the **biology** the design rests on — TEs, transcription strand, read-through, bidirectional transcription, derepression — see 👉 **[Biology primer](docs/BIOLOGY.md)** (the biology single-source-of-truth).
+
+Start with the result, then with **[Limitations](docs/LIMITATIONS.md)**: it holds the [escalation map](docs/LIMITATIONS.md#escalation-map) — what a result lets you claim (the [claim ladder](docs/LIMITATIONS.md#claim-ladder)) and when to reach for more (the [decision table](docs/LIMITATIONS.md#decision-table)). It names how far this toolkit takes you and when to escalate to a richer SAF (Simplified Annotation Format), an EM tool, or the wet lab.
 ---
 
 ## Directory Structure
@@ -185,6 +187,16 @@ See `inst/config/te_config_template.yaml` for a full example.
 ---
 
 ## Changelog
+
+### 2.0.3 — 2026-06-17 (clarity & scope pass)
+Documentation-only pass; no code changes.
+- LIMITATIONS: added a legible **escalation map** as the spine — the claim ladder (what a result lets you say, and where the line falls), how far the Random-One kernel and the current SAF reach, the three exits (expand the SAF, change the kernel, go to the wet lab), the design-freedom-vs-baked-pipeline crossover, and a one-screen decision table. Added the gene-anchored-ruler audit caveat to the normalization axis.
+- METHODOLOGY: replaced the shared-dispersion claim with "join for size factors, split for dispersion"; added the gene-anchored-ruler audit caveat; scoped Teissandier's "on par" result to the subfamily aggregate; sharpened the design-freedom note.
+- QC: moved the operational flag checklist beside the data and rewrote the working principles in plain language.
+- README: surfaced the escalation map and the honest design-freedom framing.
+
+### 2.0.2 — 2026-06-15 (kernel / normalization caveat)
+Documentation-only pass; no code changes. Added the gene-vs-TE kernel-mismatch caveat, grounded the integer Random-One choice after the strand-split overlap reconciliation, and cross-referenced the strand-split QC. See the METHODOLOGY changelog for detail.
 
 ### 2.0.1 — 2026-06-11 (documentation correction)
 Documentation-only correction pass; no code changes. Removed two myths and added missing caveats after a claim-by-claim reconciliation against the assembled evidence:
