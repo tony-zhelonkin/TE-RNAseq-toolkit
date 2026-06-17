@@ -119,8 +119,8 @@ Established for **L1 antisense promoter (ASP) / ORF0 and LTR/ERV**
 (Criscione 2016, BMC Genomics doi:10.1186/s12864-016-2800-5; Faulkner 2009, Nat Genet doi:10.1038/ng.368); 
 weak/passive for SINE (Alu passengers) and intronic passengers 
 (grade C — class-specific mechanism; see grading table). 
-The commonly cited "70%+ of TE loci are bidirectional" figure is a genome-wide antisense statistic 
-mis-imported as TE-specific (grade D); leave it out. 
+The commonly cited "70%+ of TE loci are bidirectional" figure has no primary source — it conflates two unrelated genome-scale facts (≈66–69% of the genome is *TE-derived*, de Koning 2011; ≈80% of the genome is *transcribed*, ENCODE 2012) and is not a statement about TE loci 
+(grade D; full trace in [`BIOLOGY.md`](./BIOLOGY.md)); leave it out. 
 
 The information-preserving way to keep genuine antisense signal is a **stranded sense/antisense split** — count TEs `-s 1` and `-s 2` as two separate feature sets, as TE-Seq does with its explicit per-TE antisense feature (`__AS`), with SQuIRE as conceptual precedent for per-locus strand resolution **(grade B — field split; see grading table)**. Keeping the split preserves the strand that separates autonomous TE transcription from host read-through; collapsing to `-s 0` discards it and structurally inflates TE counts.
 - **The Teissandier 2019 / Mobile DNA benchmark (ref [[1]]) does not bear on this choice:** it benchmarks **multimapper handling** (unique vs random-one vs fractional), and stops there. 
@@ -311,7 +311,7 @@ Every load-bearing claim in this toolkit's documentation is graded so that conve
 | Matched strandedness for genes+TEs in single-pass tools | **B — mechanical default** | one global `--stranded` flag (TEtranscripts/atena) |
 | "Unstranded → better TE sensitivity" | **GAP — unbenchmarked** | never measured; Savytska 2022 found stranded FDR ≤ unstranded |
 | TE bidirectionality is class-specific (L1-ASP/ORF0, LTR/ERV real; SINE/intronic weak) | **C** | Criscione 2016; Faulkner 2009 |
-| "70%+ of TE loci bidirectional" | **D — mis-imported** | genome-wide antisense figure, not TE-specific (Choi 2021) |
+| "70%+ of TE loci bidirectional" | **D — mis-imported** | conflates genome TE-composition (de Koning 2011) with genome transcription (ENCODE 2012); not a TE-loci statistic — see BIOLOGY.md |
 | "featureCounts/TEtranscripts is still the primary method" | **B — inferred** | continued routine use; explicit "most widely used" wording only in a 2026 preprint |
 
 ### Open gaps / convention-not-evidence
