@@ -104,23 +104,8 @@ LIMITATIONS §2–§4.]**
 
 ## 5. Antisense and "bidirectional" TE transcription — the real, class-specific story
 
-TEs *can* be transcribed in both directions, but this is **class-specific real biology, not a
-blanket property** — and one widely repeated number about it is simply wrong.
-
-**The "~70% of TE loci are bidirectionally transcribed" figure is unsupported — do not use it
-(grade D).** No primary source makes that claim. The number is a **conflation of two unrelated
-genome-scale facts**, neither about bidirectional transcription of TEs:
-
-- **~66–69% of the human genome is TE-derived / repeat-derived** — a statement about genome
-  *sequence composition*. **[grade A — de Koning 2011, PLoS Genetics.]**
-- **~80% of the genome is "transcribed" / biochemically active**, much of it antisense and
-  non-coding — a statement about the *whole genome*, not TEs, and itself contested. **[grade B —
-  ENCODE 2012 / Djebali 2012; critique: Graur 2013.]**
-
-"TEs are ~70% of the genome" + "~70–80% of the genome is transcribed bidirectionally" gets fused into
-"70% of TE loci are bidirectional." Neither paper used TE loci as the denominator.
-
-What the literature *does* support, by class:
+TEs can be transcribed in both directions, but this is class-specific biology, not a blanket
+property of all TEs:
 
 - **LINE-1 — a genuine antisense promoter.** The L1 5′UTR carries a sense promoter and a separate
   **antisense promoter (L1-ASP)**, which drives antisense transcription and the **ORF0** product and
@@ -138,8 +123,7 @@ What the literature *does* support, by class:
 
 The one well-quantified bidirectional-initiation finding concerns **TE-associated regulatory
 elements** (DNase-hypersensitive sites) in mouse ES cells, where the majority show balanced
-bidirectional initiation, ERV-led and cell-type-specific — again **not** "70% of all TE loci."
-**[grade B — Bakoulis & Andersson 2022.]**
+bidirectional initiation, ERV-led and cell-type-specific. **[grade B — Bakoulis & Andersson 2022.]**
 
 **Takeaway for measurement:** antisense reads over the L1 5′UTR and over LTRs *can* be real
 TE-driven biology; antisense reads over Alu and intronic TEs should be read as read-through until
@@ -196,15 +180,13 @@ Grades reflect how the source is used here, not the paper's quality.
 - **Lander et al. (IHGSC) 2001**, *Nature* — human genome; ~45% TE-derived. doi:10.1038/35057062. [A]
 - **Dewannieux et al. 2003**, *Nat Genet* — Alu mobilised by L1, non-autonomous. doi:10.1038/ng1223. [A]
 - **Brouha et al. 2003**, *PNAS* — few transposition-competent L1s. doi:10.1073/pnas.0831042100. [A]
-- **de Koning et al. 2011**, *PLoS Genetics* — 66–69% of the genome is repeat-derived. doi:10.1371/journal.pgen.1002384. [A]
-- **ENCODE Project Consortium 2012**, *Nature* — ~80% of the genome biochemically active. doi:10.1038/nature11247. [B] (critique: **Graur et al. 2013**, *Genome Biol Evol*, doi:10.1093/gbe/evt028).
 - **Speek 2001**, *Mol Cell Biol* — L1 antisense promoter. PMID 11238933. [A]
 - **Nigumann et al. 2002**, *Genomics* — L1-ASP chimeric transcripts. doi:10.1006/geno.2002.6758. [B]
 - **Criscione et al. 2016**, *BMC Genomics* — genome-wide L1 antisense chimerics. doi:10.1186/s12864-016-2800-5. [B]
 - **Denli et al. 2015**, *Cell* — L1 ORF0. doi:10.1016/j.cell.2015.09.025. [A/B]
 - **Dunn et al. 2005**, *Gene* — bidirectional LTR (DSCR4/DSCR8). PMID 16288839. [B]
 - **Gogvadze et al. 2009**, *J Virol* — intronic antisense LTR effects. doi:10.1128/JVI.00123-09. [B]
-- **Faulkner et al. 2009**, *Nat Genet* — FANTOM4 CAGE; TE-driven bidirectional transcription. doi:10.1038/ng.368. [A]
+- **Faulkner et al. 2009**, *Nat Genet* — FANTOM4 CAGE; TE-driven bidirectional transcription. doi:10.1038/ng.368. [B]
 - **Conti et al. 2015**, *Nucleic Acids Res* — few Alu detectably Pol III-transcribed. doi:10.1093/nar/gku1361. [B]
 - **Bakoulis & Andersson 2022**, *Nucleic Acids Res* — bidirectional initiation at TE-associated regulatory elements. doi:10.1093/nar/gkac088. [B]
 - **Walsh & Bestor 1998** — DNA methylation silences TEs. [A]
@@ -218,5 +200,5 @@ Grades reflect how the source is used here, not the paper's quality.
 - **Chiappinelli et al. 2015**, *Cell* — ERV dsRNA / viral mimicry. doi:10.1016/j.cell.2015.07.011. [A]
 - **Roulois et al. 2015**, *Cell* — dsRNA from ERVs after DNMT inhibition. doi:10.1016/j.cell.2015.07.056. [A]
 
-Full provenance, including the trace of the mis-imported "70%" figure, is kept in
+The full research notes and citation provenance are kept in
 `docs/_internal/research/2026-06-16-TE-biology-primer/` (not part of the published toolkit).
