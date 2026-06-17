@@ -10,7 +10,7 @@ Grades below use that document's **A/B/C/D/GAP** scale and its citations are not
 ## The instrument, in one line
 
 featureCounts on a grouped, exon-subtracted SAF where 
-* `GeneID = Subfamily:Family:Class` (1,243 mouse subfamilies), 
+* `GeneID = Subfamily:Family:Class` (the full set of mouse subfamilies), 
 * STAR Random-One + integer `-M` (no `--fraction`), 
 * counted in three strand channels — sense `-s 2` (gene-matched), antisense `-s 1` (separate channel), unstranded `-s 0` (comparison). 
 
@@ -41,7 +41,7 @@ at the same per-sample rate. Matching the strand basis seems, at least to me, in
 
 A stranded derepression study should be careful to **not** normalize an unstranded TE numerator against a stranded gene denominator. 
 The logic is: are you even using the right *measurement ruler*? The way the size factor was computed determines if you can apply the ruler to the TE rows.
-**[evidence: B — matched-basis best-practice; see METHODOLOGY §Strandedness and §Combined.]**
+**(grade B — matched-basis best-practice; see METHODOLOGY §Strandedness and §Combined.)**
 
 ### (b) BIOLOGY axis — the autonomous-vs-read-through verdict. **DOWNGRADED.**
 
@@ -51,7 +51,7 @@ It may become a verdict on the autonomous vs read-through TE element only when p
 - the genic-context 
 - and locus axes...
 ... the grouped SAF method I usually employ for subfamily aggregate resolution deliberately discards (§5). 
-**[evidence: C — inference; the verdict-grade form is TE-Seq's three-axis design, not this repo.]**
+**(grade C — inference; the verdict-grade form is TE-Seq's three-axis design.)**
 
 The whole point: matching the strand basis earns you (a) outright and only a *signal* (asymmetry) on (b) — never the *verdict*.
 
@@ -65,7 +65,7 @@ out of the `-s 2` numerator;
 - the normalization-rate mismatch — the ruler problem mentioned above.
 
 **Does NOT remove — the residue:**
-- **co-oriented (sense) read-through.** A TE sitting sense within a sense intron dumps host transcription straight into the `-s 2` channel. **No strand flag separates that at subfamily level** — the read is on the "right" strand. This is the locus/context problem, and the current grouped `Subfamily:Family:Class` SAF does not touch it. **[evidence: C — inference; consistent with the unsolved gene–TE disambiguation gap, METHODOLOGY §Open gaps #3.]**
+- **co-oriented (sense) read-through.** A TE sitting sense within a sense intron dumps host transcription straight into the `-s 2` channel. **No strand flag separates that at subfamily level** — the read is on the "right" strand. This is the locus/context problem, and the current grouped `Subfamily:Family:Class` SAF does not touch it. **(grade C — inference; the unsolved gene–TE disambiguation gap, METHODOLOGY §Open gaps #3.)**
 
 Matching the strand basis may be only a partial read-through defense.
 The part it cannot reach is exactly the part that needs **genic-context stratification** — Rung 2 of the ladder, which I come back to in §5.
@@ -92,26 +92,26 @@ It contributes 0 to the unstranded, sense, and antisense counts alike. The toolk
 - **P — parallel, same-strand (silent loss).** Both features are on the **same strand**, so no strand flag can separate them; the read is dropped by **all three** passes and never appears in any count — the case described just above. **Residual-invisible**, and the **dominant** fate.
 
 **The witnessed ledger.** A per-read audit of the strand-ambiguous reads (one sample, reproduced in a second) breaks down two ways — and **the two groupings below use different denominators, so don't mix them**: 
-* *Share of the ambiguous pile* (which fate befell an ambiguous read): **AP 25.7%  ·  M 6.1%  ·  P/silent 68.2%** — silent loss dominates; 
+* *Share of the ambiguous pile* (which fate befell an ambiguous read): silent loss (P) is **≈ two-thirds**, antiparallel (AP) **≈ a quarter**, genuine reclaim (M) the small remainder — silent loss dominates; 
 * *Share of total assigned TE signal* (what actually reaches DE): silent loss (P) ≈ **9–10%**; 
-* antiparallel double-presence (AP) ≈ 4%; 
-* genuine reclaim (M) ≈ 1%; 
-* the rare "bilateral" case (a read overlapping ≥2 features on *both* strands) negligible at **0.38%** (so the single-strand-drop assumption holds). 
+* antiparallel double-presence (AP) a few percent; 
+* genuine reclaim (M) about a percent; 
+* the rare "bilateral" case (a read overlapping ≥2 features on *both* strands) negligible (so the single-strand-drop assumption holds). 
 
 Silent loss is the **dominant** fate of the ambiguous pile. 
-**[evidence: A — per-read witness, reproduced on a 2nd sample; matches the synthetic truth table.]**
+**(grade A — per-read witness, reproduced on a 2nd sample.)**
 
-**Conditional losslessness (A1).** A prior reading framed the strand split as "lossless / recovery-dominated" — that the `s0 − sense − anti` residual being one-sided proves no loss. **That framing is refuted.** The residual is lossless **only relative to s0's *assigned* set**; same-strand silent loss is **residual-invisible** by construction (it is 0 in all three channels) and carries **no feature assignment at all** — the per-read audit records it as unassigned, not as any TE. A zero or one-sided residual certifies *nothing* about loss. The visible recovery the residual *can* see is the antiparallel and asymmetric slice only; it sits on top of an unseen silent-loss pile roughly twice its size.
+**The conditional-losslessness principle.** The `s0 − sense − anti` residual is lossless **only relative to s0's *assigned* set**. Same-strand silent loss is residual-invisible by construction: it is 0 in all three channels and carries no feature assignment, so the per-read audit records it as unassigned. The residual can therefore see only the antiparallel and asymmetric recovery slice, and that slice sits on top of an unseen silent-loss pile roughly twice its size. So the residual being one-sided tells you about recovery, and says nothing about silent loss. (The full statement of this principle lives in [`QC.md`](./QC.md).)
 
-**The operational axioms live in [`QC.md`](./QC.md).** Axioms A1–A6, the warning-flag taxonomy, the directional meter, and the gate thresholds are owned there; they are not duplicated here. This section names the limitation and its boundary. The four cases this becomes **DANGEROUS** in — each by flag name in [`QC.md`](./QC.md) — are:
-- **summing channels** — `(sense + anti)` double-counts every read that lands in **both** channels under different subfamilies — the antiparallel (AP) double-presence pile (`FLAG-SUM-CHANNELS`, A2); not bidirectional signal;
-- **s0-denominating the ERV/satellite/DNA tail** — s0 drops their antiparallel reads to Ambiguity, a pathological denominator (`FLAG-S0-DENOM-ERV`, A3); denominate on the sense channel;
-- **applying gene size factors to the `-M` TE matrix** / comparing gene-vs-TE magnitude — different kernels (`FLAG-KERNEL-MISMATCH`, A5; see §6, METHODOLOGY §Combined);
-- **silent loss aligning with the design axis** — sample-stable loss cancels in cross-sample DE, but P_frac co-varies with net strand-offset (r = −0.50), so it must be checked against the design matrix before declaring condition-independence (`FLAG-SILENTLOSS-DESIGN`, A6).
+**The operational principles live in [`QC.md`](./QC.md).** The working principles, the warning-flag taxonomy, the directional meter, and the gate thresholds are owned there; they are not duplicated here. This section names the limitation and its boundary. The four cases this becomes **DANGEROUS** in — each by flag name in [`QC.md`](./QC.md) — are:
+- **summing channels** — `(sense + anti)` double-counts every read that lands in **both** channels under different subfamilies — the antiparallel (AP) double-presence pile (`FLAG-SUM-CHANNELS`); not bidirectional signal;
+- **s0-denominating the ERV/satellite/DNA tail** — s0 drops their antiparallel reads to Ambiguity, a pathological denominator (`FLAG-S0-DENOM-ERV`); denominate on the sense channel;
+- **applying gene size factors to the `-M` TE matrix** / comparing gene-vs-TE magnitude — different kernels (the kernel-mismatch caveat, `FLAG-KERNEL-MISMATCH`; see §6, METHODOLOGY §Combined);
+- **silent loss aligning with the design axis** — sample-stable loss cancels in cross-sample DE, but the silent-loss share co-varies with the net strand-offset, so it must be checked against the design matrix before declaring condition-independence (`FLAG-SILENTLOSS-DESIGN`).
 
-**Scope — not alarmist.** The young autonomous candidates (L1Md_T/Gf/A, IAPEz) are **🟢 GREEN: 96.65% conserved** (non-conserved 3.35% < 5% gate; IAPEz-int 99.8%). The burden sits on the **old SINE / MaLR-LTR** subfamilies (silent loss) and on **ERVK-LTR / satellite** (antiparallel double-presence), not on the young autonomous tail. See [`QC.md` §7](./QC.md) for the GREEN/RED gate. The young-silent attribution is **now witnessed for the gate set** via the `-O` target-revealer ([`QC.md` §4a/§9](./QC.md)): the young silent-loss share is **1.27–1.37%**, concordant with the geometry prediction, so the GREEN gate's **second leg is closed at read level** (no longer geometry-inference alone) — the genic-context Rung-2 GAP (intron/intergenic stratification on the richer SAF, §5) stays open. **[evidence: A — `-O` per-read young-silent witness, concordant with geometry; the genic-context attribution remains the Rung-2 GAP, §5.]**
+**Scope — not alarmist.** The young autonomous candidates (L1Md_T/Gf/A, IAPEz) sit **🟢 GREEN: well past the conservation gate (>90%)**. The burden sits on the **old SINE / MaLR-LTR** subfamilies (silent loss) and on **ERVK-LTR / satellite** (antiparallel double-presence), not on the young autonomous tail. See [`QC.md` §7](./QC.md) for the GREEN/RED gate. The young-silent attribution is **now witnessed for the gate set** via the `-O` target-revealer ([`QC.md` §4a/§9](./QC.md)): the young silent-loss share is a small fraction of a percent, concordant with the geometry prediction, so the GREEN gate's **second leg is closed at read level** (no longer geometry-inference alone) — the genic-context Rung-2 GAP (intron/intergenic stratification on the richer SAF, §5) stays open. **(grade A — `-O` per-read young-silent witness, concordant with geometry; the genic-context attribution remains the Rung-2 GAP, §5.)**
 
-**The YELLOW DE-confound (A6).** On the SD criterion silent loss is *not* a confound (P_frac-of-signal SD 0.0028 < net-offset SD 0.0081), so it cancels in cross-sample contrasts under the usual conditions. **BUT** P_frac correlates with per-sample net strand-offset (**r = −0.50**): silent loss is not a flat tax, it co-varies with sample-level strand behaviour. This **must** be checked against the experimental design matrix before treating silent loss as condition-independent. The check is **pick-up-ready** in the dataset-side `featurecounts_results/DE_precheck/` (the design matrix is not currently loaded). **[evidence: B — sample-stable on SD; YELLOW pending the design-matrix check.]**
+**The YELLOW DE-confound.** Sample-to-sample the silent-loss share varies less than the net strand-offset does, so it cancels in cross-sample contrasts under the usual conditions. It does, however, co-vary with per-sample net strand-offset — silent loss is not a flat tax, it tracks sample-level strand behaviour. So it **must** be checked against the experimental design matrix before treating it as condition-independent. The check is **pick-up-ready** in the dataset-side `DE_precheck/` (the design matrix is not currently loaded). **(grade B — sample-stable; YELLOW pending the design-matrix check.)**
 
 ---
 
@@ -129,15 +129,15 @@ One TE subfamily. No real change in autonomous transcription. Ctrl vs Senescent,
 
 The gene-anchored size factor **cannot rescue** the `-s 0` case: genes never saw the read-through bump (`-t exon`, on-strand), so `s_j` stays ≈ 1 and leaves the inflation in place. Worse, the fake signal points the **same direction** as the hypothesis (senescence → TE up), so it reads as confirmation.
 
-This only bites when **strand-capture varies across samples** — which is exactly the derepression setting: intron retention and read-through rise with senescence / stress / immune activation, correlated with the tested biology. A *constant* rate difference would cancel in a log-fold-change; it is the *covariance with condition* that fabricates signal. **[evidence: C — inference, arithmetic; the underlying disambiguation problem is METHODOLOGY §Open gaps #3, the strand-basis rationale §Strandedness.]**
+This only bites when **strand-capture varies across samples** — which is exactly the derepression setting: intron retention and read-through rise with senescence / stress / immune activation, correlated with the tested biology. A *constant* rate difference would cancel in a log-fold-change; it is the *covariance with condition* that fabricates signal. **(grade C — inference, arithmetic; the disambiguation problem is METHODOLOGY §Open gaps #3, the strand-basis rationale §Strandedness.)**
 
 ---
 
 ## 4. The antisense channel must DO WORK
 
-Holding stranded counts on disk is necessary but not sufficient. Subfamily-level featureCounts + the stranded sense/antisense design is the **right instrument** — but the discrimination that separates real derepression from read-through is a **condition × channel interaction test** (does the sense/antisense ratio shift with condition?), **not** the mere existence of the counts.
+Holding stranded counts on disk is only the first step. Subfamily-level featureCounts + the stranded sense/antisense design is the **right instrument**, and the discrimination that separates real derepression from read-through comes from a **condition × channel interaction test** (does the sense/antisense ratio shift with condition?) — the counts have to be *used*, their mere existence does nothing.
 
-A `-s 2` sense-channel DE result that is simply *called* "derepression" without using the `-s 1` channel to test it is still exposed to every residue in §2–§3. Correct design — but the antisense channel has to do work **before any DE is called derepression**. **[evidence: B — sense/antisense split is SQuIRE-specific design, METHODOLOGY §Strandedness; the interaction test as the discriminator is grade C inference.]**
+A `-s 2` sense-channel DE result that is simply *called* "derepression" without using the `-s 1` channel to test it is still exposed to every residue in §2–§3. Correct design, but the antisense channel has to do work **before any DE is called derepression**. **(grade B — explicit sense/antisense channel is TE-Seq's design (SQuIRE resolves per-locus strand as conceptual precedent), METHODOLOGY §Strandedness; the interaction test as the discriminator is grade C inference.)**
 
 ---
 
@@ -149,7 +149,7 @@ Each rung adds an axis. Higher rung = more specific claim, more fragile inferenc
   Derepression vs read-through at **subfamily level, statistically**, via the condition × channel interaction (§4). featureCounts + grouped SAF. **ROBUST; current-standard genre.**
 
 - **Rung 2 — + genic-context-stratified SAF (intergenic / intronic / adjacent).**
-  Read-through attribution **structurally**: split each subfamily into e.g. `L1HS:intergenic`, `L1HS:intronic`. Intergenic loci have no host to read through, so intergenic-TE derepression is the clean **autonomous-candidate** signal; intronic "derepression" *not* mirrored intergenically is a **read-through flag**. Still featureCounts, richer SAF. Genic context lives in the SAF **annotation**, not a different downstream tool.
+  Read-through attribution **structurally**: split each subfamily into e.g. `L1HS:intergenic`, `L1HS:intronic`. Intergenic loci have no host to read through, so intergenic-TE derepression is the clean **autonomous-candidate** signal; intronic "derepression" *not* mirrored intergenically is a **read-through flag**. Still featureCounts, richer SAF. Genic context lives in the SAF **annotation**, not a different downstream tool. This is exactly TE-Seq's design — it labels every TE locus Exonic/Intronic/Intergenic (plus gene-adjacent and UTR) and stratifies its DE on that axis — so the rung is grounded in a real pipeline, not only inference.
 
 - **Rung 3 — EM locus assignment.**
   Names the firing copy (which L1HS at which locus); per-locus context + neighbor-gene correlation. Telescope (TE-Seq wraps it) / SQuIRE. **SPECIFIC but FRAGILE** (per-locus FDR — METHODOLOGY §Field trajectory: TElocal ≈ 26% FDR, Savytska 2022).
@@ -169,7 +169,7 @@ Compressed:
 | strand × genic-context | autonomous vs passive — a *verdict* (TE-Seq) |
 | strand × context × locus | which copy is firing — an *address* (Telescope / SQuIRE) |
 
-TE-Seq pairs all three (strand: sense/antisense; genic context: intergenic/intronic/adjacent; locus: Telescope EM) to call autonomous-vs-read-through. **This toolkit has only the strand axis.** So it earns the signal, not the verdict and not the address. **[evidence: B — TE-Seq / SQuIRE three-axis design; the rung judgment is grade C inference.]**
+TE-Seq pairs all three (strand: sense/antisense; genic context: intergenic/intronic/adjacent; locus: Telescope EM) to call autonomous-vs-read-through. **This toolkit has only the strand axis.** So it earns the signal, and the verdict and address stay out of reach. **(grade A for the genic-context rung — TE-Seq's Exonic/Intronic/Intergenic stratifier; the rung-ordering judgment is grade C inference.)**
 
 ---
 
@@ -177,11 +177,11 @@ TE-Seq pairs all three (strand: sense/antisense; genic context: intergenic/intro
 
 Do **not** promote TE% or gene-vs-TE magnitude to biology. Making the joint matrix normalization-**coherent** (mutual exclusivity via exon subtraction, genes-only size factors) is the most seductive moment to over-read it — **coherence is not magnitude.**
 
-- No TPM / FPKM for TE meta-features (summed loci have no single length — METHODOLOGY §Open gaps #5). **[evidence: C — inference.]**
+- No TPM / FPKM for TE meta-features (summed loci have no single length — METHODOLOGY §Open gaps #5). **(grade C — inference.)**
 - "TE % of transcriptome" is a QC sanity band, not a biological fraction (METHODOLOGY §Normalization, §Combined).
 - The joint matrix is valid for **within-feature-type, across-sample DE only**, never gene-vs-TE within-sample magnitude.
 
-The shared strand basis earned strand **asymmetry** and a valid normalization **ruler** — **NOT** an autonomy verdict and **NOT** a magnitude statement. **[evidence: C — the no-cross-feature-magnitude / no-TPM rule, METHODOLOGY §Combined and §Open gaps #5.]**
+The shared strand basis earned two things and only two: strand **asymmetry** and a valid normalization **ruler**. The autonomy verdict and the magnitude statement stay beyond it. **(grade C — the no-cross-feature-magnitude / no-TPM rule, METHODOLOGY §Combined and §Open gaps #5.)**
 
 ---
 
