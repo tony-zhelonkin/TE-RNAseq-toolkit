@@ -4,7 +4,7 @@ set -euo pipefail
 # runFeatureCounts_TE_and_genes.sh
 #
 # What it does
-#   1) TE counts (featureCounts on SAF; -M --fraction; fragments; default unstranded)
+#   1) TE counts (featureCounts on SAF; -M integer, NO --fraction; fragments; -s 0 standalone default — see strandedness note below)
 #   2) Gene counts (calls your existing runFeatureCounts.sh for GTF; fragments; per-project strandedness)
 #   3) Optionally TE sense/antisense matrices (for stranded libs)
 #   4) Outputs tidy count matrices and an optional combined matrix (genes + TE)
@@ -13,15 +13,26 @@ set -euo pipefail
 #   -i   BAM directory with *.bam (non-recursive)
 #   -o   Output base directory (we’ll create subfolders)
 #   -g   Gene GTF (e.g. gencode.vM37.primary_assembly.annotation.filtered.gtf)
-#   -e   TE SAF (your /data1/shared/ref/.../GRCm39_rmsk_TE_formatted.saf)
+#   -e   TE SAF (grouped, exon-subtracted; e.g. /data1/shared/ref/mouse/Ensembl/mm39/GRCm39_rmsk_TE_GROUPED_all_noExon.saf)
 #   -S   Gene strandedness for featureCounts: 0|1|2   (0=unstranded, 1=forward, 2=reverse)
 #   -t   Threads (default 12)
 #   --te-strand   One of: unstranded|sense_antisense  (default: unstranded)
 #
 # Notes
-#   - TE is counted with:  -M  -p --countReadPairs -B -C 
-#   - TE argument counting: --fraction — was removed to facilitate integer counting 
-#   - TE default is unstranded (-s 0) to avoid halving signal from antisense TE transcription.
+#   - TE is counted with:  -M  -p --countReadPairs -B -C
+#   - TE multi-mapper counting is INTEGER Random-One everywhere (one kernel): -M, NO --fraction,
+#     on the primary, sense, AND antisense passes. Integer because STAR Random-One emits one
+#     alignment/read; the fractional route is a non-default alternative (STAR --outSAMmultNmax 100
+#     + -M --fraction → non-integer; see docs/METHODOLOGY.md Strategy B).
+#   - TE default here is unstranded (-s 0) for STANDALONE TE-family quantification — a defensible
+#     choice that matches the dominant tool's default (TEtranscripts --stranded no). NOTE: "-s 0 =
+#     better TE sensitivity" is UNBENCHMARKED (a sensitivity-for-specificity trade, not a proven
+#     gain; the only both-mode study, Savytska 2022, found stranded FDR <= unstranded). For a JOINT
+#     gene+TE matrix on a stranded library, the more principled (best-practice, not proven-superior)
+#     route is counting TEs at the gene strandedness (e.g. -s 2 for reverse dUTP) so both feature
+#     types share one basis; preserve class-specific bidirectional/antisense TE biology via
+#     --te-strand sense_antisense (below), NOT by collapsing to -s 0. The field is SPLIT on this.
+#     See docs/METHODOLOGY.md "Strandedness: when -s 0 vs stranded" and "Evidence grading".
 #   - If you set --te-strand sense_antisense AND your library is stranded (e.g., reverse), we also produce TE-sense and TE-antisense matrices by running -s 2 and -s 1 respectively.
 #
 # Author: Anton Zhelonkin
@@ -97,7 +108,7 @@ join_bams() {
 }
 
 # --------------------------- TE COUNTS (first) ---------------------------
-echo "[TE] Counting TEs (fractional multi-mappers; fragments)..."
+echo "[TE] Counting TEs (integer Random-One multi-mappers; -M -s 0; fragments)..."
 
 # Unstranded matrix
 TE_RAW="${TE_DIR}/te_counts_raw.txt"
@@ -133,15 +144,17 @@ if [[ "$TE_STRAND_MODE" == "sense_antisense" ]]; then
   else
     if [[ "$GENE_STRAND" == "2" ]]; then SENSE_S=2; ANTISENSE_S=1; else SENSE_S=1; ANTISENSE_S=2; fi
 
+    # Integer Random-One (NO --fraction): STAR emits one alignment/read. Fractional is a
+    # non-default alternative (STAR --outSAMmultNmax 100 + -M --fraction; see docs/METHODOLOGY.md Strategy B).
     TE_RAW_S="${TE_DIR}/te_counts_sense_raw.txt"
     TE_MAT_S="${TE_DIR}/te_counts_sense_matrix.txt"
-    featureCounts -M --fraction -F SAF -a "$TE_SAF" -o "$TE_RAW_S" -s $SENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
+    featureCounts -M -F SAF -a "$TE_SAF" -o "$TE_RAW_S" -s $SENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
     awk 'BEGIN{FS=OFS="\t"} NR==1{next} NR==2{printf "Geneid"; for(i=7;i<=NF;i++){split($i,a,"/"); split(a[length(a)],b,"."); printf "\t" b[1]} printf "\n"; next} {printf $1; for(i=7;i<=NF;i++) printf "\t" $i; printf "\n"}' "$TE_RAW_S" > "$TE_MAT_S"
     echo "[TE] Sense matrix -> $TE_MAT_S"
 
     TE_RAW_A="${TE_DIR}/te_counts_antisense_raw.txt"
     TE_MAT_A="${TE_DIR}/te_counts_antisense_matrix.txt"
-    featureCounts -M --fraction -F SAF -a "$TE_SAF" -o "$TE_RAW_A" -s $ANTISENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
+    featureCounts -M -F SAF -a "$TE_SAF" -o "$TE_RAW_A" -s $ANTISENSE_S -p --countReadPairs -B -C -T "$THREADS" $(join_bams)
     awk 'BEGIN{FS=OFS="\t"} NR==1{next} NR==2{printf "Geneid"; for(i=7;i<=NF;i++){split($i,a,"/"); split(a[length(a)],b,"."); printf "\t" b[1]} printf "\n"; next} {printf $1; for(i=7;i<=NF;i++) printf "\t" $i; printf "\n"}' "$TE_RAW_A" > "$TE_MAT_A"
     echo "[TE] Antisense matrix -> $TE_MAT_A"
   fi

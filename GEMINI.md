@@ -1,7 +1,7 @@
 # GEMINI.md - TE-RNAseq-toolkit Context
 
 **Project:** TE-RNAseq-toolkit
-**Version:** 2.0.0
+**Version:** 2.0.1
 **Type:** R Analysis Toolkit (Modular Scripts)
 **Primary Goal:** Robust differential expression and enrichment analysis of Transposable Elements (TEs) alongside genes in bulk RNA-seq.
 
@@ -36,8 +36,9 @@ This toolkit provides a standardized, statistically rigorous framework for integ
 ### Mode A: Combined (Recommended)
 Analyze genes and TEs in a single `DGEList`.
 *   **Prerequisite:** Gene and TE annotations must **not** overlap (exonic TEs removed).
-*   **Method:** Unified TMM normalization and `limma-voom` modeling.
-*   **Benefit:** Shared dispersion estimation, single FDR correction.
+*   **Method:** `limma-voom` modeling with shared dispersion. **Size factors are best anchored on genes** (`controlGenes` / TMM on the gene submatrix) rather than pooled across genes+TEs, since the multimapper-inflated TE minority violates the "most features unchanged" assumption. **[evidence: B — TE-Seq recommends genes-only; TEtranscripts pools, so contested].**
+*   **Benefit:** Shared dispersion estimation, single FDR correction. (Valid for within-feature-type, across-sample DE only — not for gene-vs-TE magnitude or "TE %"; the no-cross-feature-magnitude rule is **grade C — inference**.)
+*   **TE strandedness (the field is SPLIT — no benchmarked standard):** the dominant tool TEtranscripts **defaults to UNSTRANDED** (`--stranded no`); TE-Seq/Mobile DNA 2025 recommend stranded. For a joint stranded matrix the more principled route is counting TEs at the gene strandedness (`-s 2` for reverse dUTP) — **best-practice (grade B), not proven-superior** — with a sense/antisense split (grade B, SQuIRE) to preserve class-specific bidirectional biology. `-s 0` is a defensible standalone choice (matches the dominant tool's default); "unstranded → better TE sensitivity" is **unbenchmarked (GAP)**. See `docs/METHODOLOGY.md` → "Evidence grading & open questions."
 
 ### Mode B: Separate
 Analyze TEs in a separate `DGEList`.
