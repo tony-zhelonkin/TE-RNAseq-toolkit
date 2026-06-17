@@ -12,6 +12,8 @@ The document covers:
 It is downstream of the subfamily-resolution fact stated in [`LIMITATIONS.md`](./LIMITATIONS.md): 
 the grouped `Subfamily:Family:Class` SAF carries no genic context and no locus identity, and every boundary below sits on top of that.
 
+For the biology behind the strand channels — sense/antisense, bidirectional transcription, read-through, derepression — see [`BIOLOGY.md`](./BIOLOGY.md).
+
 Grades below use the **A/B/C/D/GAP** scale of [`METHODOLOGY.md`](./METHODOLOGY.md); its citations are not restated here. 
 This document **defers** to [`METHODOLOGY.md`](./METHODOLOGY.md) for the multimapper-kernel rationale (Strategy A/B, Teissandier) 
 and to [`LIMITATIONS.md`](./LIMITATIONS.md) for the 3-rung ladder and the co-oriented-readthrough residue — links, not duplication.
@@ -125,6 +127,7 @@ This is the **single source of truth** for the named flags. Sidecars and skill d
 | `FLAG-SILENTLOSS-DESIGN` | 🟡 | Silent loss is sample-stable (cancels under usual conditions) BUT its share co-varies with net strand-offset; verify against the design matrix before declaring condition-independence (`DE_precheck/`). |
 | `FLAG-ALIGNMENT-WEIGHTED` | 🔴 | The SENSE integer matrix is fragment-weighted under Random-One (`--outSAMmultNmax 1`, matrix==nfrag); if BAMs ever emit >1 locus/fragment (or `--outSAMmultNmax` > 1 with `-M`), young high-NH families inflate up to ~meanNH-fold — re-verify with the kernel-tracer (§9) before trusting young fold-changes. |
 | `FLAG-DENOM-SCALE` | 🟡 | Per-sample vs library-summed denominators must never be mixed; label the scale on every ratio. A/A/A is unstranded-ASSIGNED, so `A/A/A ÷ ambiguous` is not a real fraction of the ambiguous pile — do not report it. |
+| `FLAG-READTHROUGH-SENTINEL` | 🟡 | A `-s 2` sense-up / antisense-flat "derepression" call is NOT validated by the antisense channel: co-oriented (same-strand) read-through is count-identical to autonomous and unseparable by strand. A broad antisense rise with condition is the global read-through sentinel — it raises read-through suspicion across all sense calls but is necessary-not-sufficient (null on the co-oriented residue); the separation requires the genic-context Rung-2 hand-off (intergenic vs intronic) before the word derepression is used (see [`LIMITATIONS.md` §4–§5](./LIMITATIONS.md)). |
 
 Names are stable identifiers — do not rename downstream.
 
@@ -218,7 +221,8 @@ After the per-read witness (§4), **prove the ledger closes to the read.** Build
 ## Resources
 
 - [`METHODOLOGY.md`](./METHODOLOGY.md) — multimapper kernel rationale (Strategy A/B, Teissandier), normalization, combined-matrix validity.
-- [`LIMITATIONS.md`](./LIMITATIONS.md) — the 3-rung ladder (§5), the co-oriented-readthrough residue (§2), and the same-strand silent loss limitation (§2a).
+- [`LIMITATIONS.md`](./LIMITATIONS.md) — the 3-rung ladder (§5), the co-oriented-readthrough residue (§2), the necessary-not-sufficient antisense channel and global read-through sentinel (§4), and the same-strand silent loss limitation (§2a).
+- [`BIOLOGY.md`](./BIOLOGY.md) — the biology behind the strand channels: sense/antisense, class-specific bidirectional transcription, read-through, derepression.
 - `te-gene-featurecounts` skill — strand-split QC regression: `tests/strand_qc/run_regression.sh` (synthetic truth table in `te-fc:2.0.2` + the `-R CORE` regime-classifier fixture); reference `references/strand-split-qc.md`.
 - `te-gene-featurecounts` skill `qc/` — the runnable, parameterized "QC a new TE dataset end-to-end" suite (`qc/run_qc.sh`: BAM dir + SAF + strand + outdir → witness tables + GREEN/RED verdicts). Operationalizes the `-R CORE` regime witness (§4), the kernel-tracer / fragment-weighting check (§9), the closure-table audit (§10), and the `-O` silent-loss attribution (§4a). See `qc/README.md`.
 - `featurecounts_results/DE_precheck/` (dataset-side, not in this repo) — the pick-up-ready DE-confound check for GAP (i) / `FLAG-SILENTLOSS-DESIGN`.

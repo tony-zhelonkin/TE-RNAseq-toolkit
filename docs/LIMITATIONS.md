@@ -2,6 +2,7 @@
 
 This is the **boundary document**. 
 It names the inferential limits of the TE quantification this toolkit performs and where a result stops being supported by the current design. 
+For the *biology* these limits rest on — strand, read-through, bidirectional transcription, derepression — see [`BIOLOGY.md`](./BIOLOGY.md). 
 For the *why* behind the design choices (strandedness, multimapper kernel, joint matrix, normalization), 
 and for the evidence grades and citations those choices rest on, see [`METHODOLOGY.md`](./METHODOLOGY.md). 
 
@@ -12,7 +13,7 @@ Grades below use that document's **A/B/C/D/GAP** scale and its citations are not
 featureCounts on a grouped, exon-subtracted SAF where 
 * `GeneID = Subfamily:Family:Class` (the full set of mouse subfamilies), 
 * STAR Random-One + integer `-M` (no `--fraction`), 
-* counted in three strand channels — sense `-s 2` (gene-matched), antisense `-s 1` (separate channel), unstranded `-s 0` (comparison). 
+* counted in three strand channels — sense `-s 2` (gene-matched, the DE numerator), antisense `-s 1` (separate channel), unstranded `-s 0` (QC reconciliation only, never a DE numerator). 
 
 The joint gene+TE matrix row-binds genes (`-s 2`) and TE-sense (`-s 2`) as mutually exclusive features, 
 with **no normalization applied at this stage — the delivered matrix is raw integer counts.**
@@ -82,7 +83,8 @@ out of the `-s 2` numerator;
 - **co-oriented (sense) read-through.** A TE sitting sense within a sense intron dumps host transcription straight into the `-s 2` channel. **No strand flag separates that at subfamily level** — the read is on the "right" strand. This is the locus/context problem, and the current grouped `Subfamily:Family:Class` SAF does not touch it. **(grade C — inference; the unsolved gene–TE disambiguation gap, METHODOLOGY §Open gaps #3.)**
 
 Matching the strand basis may be only a partial read-through defense.
-The part it cannot reach is exactly the part that needs **genic-context stratification** — Rung 2 of the ladder, which I come back to in §5.
+The part it cannot reach is exactly the part separated by **genic context** — does the apparent signal survive in the read-through-free **intergenic** copies? 
+That is Rung 2 of the ladder, which I come back to in §5.
 
 ---
 
@@ -100,7 +102,7 @@ They are different failure modes; closing one does not close the other, both unr
 * *and* by both stranded passes (the strand-matched pass still sees ≥2 candidates → Ambiguity; the opposite pass sees none → NoFeatures). 
 It contributes 0 to the unstranded, sense, and antisense counts alike. The toolkit's three-channel counting never sees it.
 
-**The three fates of a strand-ambiguous read — what AP / M / P below mean.** When the unstranded pass (`-s 0`) cannot 
+**The three fates of a strand-ambiguous read** When the unstranded pass (`-s 0`) cannot 
 uniquely assign a read because it overlaps two annotated features at once, re-counting that read *by strand* 
 sends it to exactly one of three fates:
 - **AP — antiparallel.** The two features are on **opposite strands**; the sense pass keeps one and the antisense pass keeps the other, 
@@ -143,7 +145,7 @@ This section names the limitation and its boundary. The four cases this becomes 
 The burden sits on the **old SINE / MaLR-LTR** subfamilies (silent loss) and on **ERVK-LTR / satellite** (antiparallel double-presence), 
 not on the young autonomous tail. 
 See [`QC.md` §7](./QC.md) for the GREEN/RED gate. 
-The young-silent attribution is **now witnessed for the gate set** via the `-O` target-revealer ([`QC.md` §4a/§9](./QC.md)): 
+The young-silent attribution is **witnessed for the gate set** via the `-O` target-revealer ([`QC.md` §4a/§9](./QC.md)): 
 the young silent-loss share is a small fraction of a percent, concordant with the geometry prediction, 
 so the GREEN gate's **second leg is closed at read level** (no longer geometry-inference alone) — the genic-context 
 Rung-2 GAP (intron/intergenic stratification on the richer SAF, §5) stays open. 
@@ -157,9 +159,10 @@ So it **must** be checked against the experimental design matrix before treating
 
 ---
 
-## 3. The worked case: how `-s 0` fabricates derepression
+## 3. The worked case: how unstranded counting `-s 0` can potentially fabricate derepression
 
-One TE subfamily. No real change in autonomous transcription. Ctrl vs Senescent, equal depth, so gene size factors `s_j ≈ 1.0` in both.
+One TE subfamily. No real change in autonomous transcription. 
+Ctrl vs Senescent, equal depth, so gene size factors `s_j ≈ 1.0` in both.
 
 | Reads accrued | Ctrl | Sen |
 |---|---|---|
@@ -185,14 +188,34 @@ fabricates signal.
 ## 4. The antisense channel must DO WORK
 
 Holding stranded counts on disk is only the first step. 
-Subfamily-level featureCounts + the stranded sense/antisense design is the **right instrument**, 
-and the discrimination that separates real derepression from read-through comes from a **condition × channel interaction test** 
-(does the sense/antisense ratio shift with condition?) — the counts have to be *used*, their mere existence does nothing.
+Subfamily-level featureCounts + the stranded sense/antisense design is the **right instrument** — 
+but the counts have to be *used*, and it matters precisely what each channel can and cannot settle.
 
-A `-s 2` sense-channel DE result that is simply *called* "derepression" without using the `-s 1` channel to test it 
-is still exposed to every residue in §2–§3. 
-Correct design, but the antisense channel has to do work **before any DE is called derepression**. 
-**(grade B — explicit sense/antisense channel is TE-Seq's design (SQuIRE resolves per-locus strand as conceptual precedent), METHODOLOGY §Strandedness; the interaction test as the discriminator is grade C inference.)**
+**What the antisense channel settles.** A condition × channel interaction test (does the sense/antisense 
+ratio shift with condition?) catches the **antisense flavour** of read-through — opposite-strand host 
+transcription that lifts antisense while sense stays flat — and confirms a **bidirectional-class** signal 
+when sense and antisense co-move (real for L1-ASP/ORF0 and LTR/ERV — grade C class-specific). 
+Run library-wide, a broad antisense rise with condition is a **global read-through sentinel**: read-through 
+pressure is up genome-wide, so the sense calls inherit suspicion.
+
+**What it cannot settle — and this is the load-bearing point.** 
+Co-oriented (same-strand) read-through and genuine autonomous derepression are **both sense-up, 
+antisense-flat**. They produce the *same* ratio, so the interaction test cannot separate them, and it is 
+silent on bidirectional autonomous derepression (sense and antisense rise together, ratio flat). 
+Matching the strand basis and testing the channel interaction is therefore **necessary, not sufficient**: 
+it removes the antisense flavour, raises the prior, and flags asymmetry — it does **not** certify a 
+sense-up call is autonomous rather than co-oriented read-through.
+
+**Where the verdict comes from.** The co-oriented residue is separated by **genic context, not by strand** — 
+Rung 2 of the ladder (§5): does the apparent derepression survive in the read-through-free **intergenic** 
+copies? That is the hand-off. The antisense channel does its work; the autonomy verdict waits on Rung 2.
+
+A `-s 2` sense-channel result simply *called* "derepression" without the antisense channel doing this work, 
+and without the Rung-2 hand-off for any sense-up / antisense-flat call, is still exposed to every residue 
+in §2–§3. 
+**(grade B — explicit sense/antisense channel is TE-Seq's design, SQuIRE per-locus strand as precedent, 
+METHODOLOGY §Strandedness; the interaction test as a necessary-not-sufficient sentinel — separation 
+deferred to genic context — is grade C inference.)**
 
 ---
 
@@ -201,7 +224,8 @@ Correct design, but the antisense channel has to do work **before any DE is call
 Each rung adds an axis. Higher rung = more specific claim, more fragile inference.
 
 - **Rung 1 — stranded sense/antisense, grouped SAF.** *(← what this toolkit does.)*
-  Derepression vs read-through at **subfamily level, statistically**, via the condition × channel interaction (§4). 
+  Strand asymmetry and the antisense-flavour / bidirectional read-through, at **subfamily level, statistically**, via the condition × channel interaction (§4). 
+The co-oriented residue is **not** settled here — it hands off to Rung 2. 
 featureCounts + grouped SAF. **ROBUST; current-standard genre.**
 
 - **Rung 2 — + genic-context-stratified SAF (intergenic / intronic / adjacent).**
@@ -217,7 +241,8 @@ stratifies its DE on that axis — so the rung is grounded in a real pipeline, n
 Telescope (TE-Seq wraps it) / SQuIRE. **SPECIFIC but FRAGILE** 
 (per-locus FDR — METHODOLOGY §Field trajectory: TElocal ≈ 26% FDR, Savytska 2022).
 
-**Judgment.** For an **aggregate-derepression** claim, finish Rung 1 properly (the interaction) and reach for **Rung 2 before Rung 3** — a richer SAF buys most of TE-Seq's read-through defense at a fraction of the cost and none of the locus-FDR fragility. Climb to Rung 3 only when the question is genuinely **"WHICH insertion,"** because that is where you trade a robust claim for a specific one.
+**Judgment.** For an **aggregate-derepression** claim, finish Rung 1 properly (the interaction) and reach for **Rung 2 before Rung 3** — a richer SAF buys most of TE-Seq's read-through defense at a fraction of the cost and none of the locus-FDR fragility. Climb to Rung 3 only when the question is genuinely **"WHICH insertion,"** because that is where you trade a robust claim for a specific one. 
+For any **load-bearing sense-up / antisense-flat** call — and for every call once the global read-through sentinel fires — Rung 2 is **required**, not optional: it is the only step that separates co-oriented read-through from autonomous derepression. Stop at Rung 1 only for an honest strand-asymmetric signal, never an autonomy verdict.
 
 Compressed:
 - aggregate derepression is the **ROBUST** claim, not the compromise;
