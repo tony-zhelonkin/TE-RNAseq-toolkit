@@ -1,18 +1,22 @@
 # Biology primer: transposable elements, strand, and "derepression"
 
-This is the **biology single-source-of-truth** for the toolkit. The other documents reason about
-*measurement* — [`METHODOLOGY.md`](./METHODOLOGY.md) (why the counting choices), [`LIMITATIONS.md`](./LIMITATIONS.md)
-(what a result can and cannot claim), [`QC.md`](./QC.md) (the QC gate). 
+This is the **biology single-source-of-truth** for the toolkit. The other three documents reason about *measurement*:
+- [`METHODOLOGY.md`](./METHODOLOGY.md) — why the counting choices are what they are,
+- [`LIMITATIONS.md`](./LIMITATIONS.md) — how far the current setup can go (what a result can and cannot claim),
+- [`QC.md`](./QC.md) — the quality-control gate.
 
-This one explains the *biology* those choices rest on, for a reader who does not already work on transposable elements.
+This one explains the *biology* those choices rest on — an attempt to make the transposon-bioinformatics theory a bit friendlier, for a reader who does not already work on transposable elements.
 
-Claims carry the same **A/B/C/D/GAP** evidence grades used across the toolkit: 
-* A = peer-reviewed standard, 
-* B = single strong source / tool default, 
-* C = mechanistic inference, 
-* D = folklore / mis-imported, GAP = no adequate source). 
+Claims carry the same **A/B/C/D/GAP** evidence grades used across the toolkit:
+* A = peer-reviewed standard,
+* B = single strong source / tool default,
+* C = mechanistic inference,
+* D = folklore / mis-imported,
+* GAP = no adequate source.
 
-> **Last updated:** 2026-06-11
+The grades are an informal, personal convention — a quick signal of how far to trust each line, not a formal score.
+
+> **Last updated:** 2026-06-17
 
 Citations are listed at the end; textbook fundamentals are left uncited by design.
 
@@ -20,20 +24,143 @@ Citations are listed at the end; textbook fundamentals are left uncited by desig
 
 ## 1. Strands and transcription direction
 
-DNA is double-stranded and antiparallel; both strands are read 5′→3′. For any given gene, 
-RNA polymerase reads one strand (the **template**) and the resulting mRNA matches the other 
-(the **coding**, or **sense**, strand). Genes on the `+` and `−` chromosome strands therefore point in
-opposite directions — `+`/`−` is just a coordinate label for the chromosome, not where a gene sits.
+This is a thing that confused me for the longest time, and honestly still trips me up now and then. I always found the
+different naming systems hard to reconcile in my head — to my shame, I finished a bioinformatics programme still holding
+only a vague picture of it. Below I try to lay the basic molecular biology next to the confusing bioinformatics glossary
+and connect the two. Personally I feel the conventions could have been made simpler from the start, but I might be missing
+why they aren't. In any case, strap in — here we go.
 
-Two definitions the rest of this document leans on, and they are always **relative to a chosen
-feature** (a gene, or a TE):
+### Basic biology
 
-- **sense** — a read in the *same* orientation as that feature's transcript.
-- **antisense** — a read in the *opposite* orientation.
+DNA is double-stranded and antiparallel. RNA Polymerase always *reads* its template strand in the 3′→5′ direction, and
+always *builds* the new RNA in the 5′→3′ direction. For any single gene only one of the two DNA strands is the template;
+across the whole genome either strand can play that role, depending on the gene (that is the part that matters later).
 
-A read is only "sense" or "antisense" *with respect to a particular feature*. The same read can be
-sense to one feature and antisense to an overlapping one. That relativity is the root of every
-strand subtlety below. **[textbook — grade A.]**
+For one gene, the two strands of the helix split into two roles:
+
+* **Template strand** — the track RNA Pol physically sits on and reads, 3′→5′.
+* **Coding strand** — the opposite strand. Pol never touches it, yet its sequence is an exact match to the resulting
+  mRNA (with T in place of U).
+
+```text
+   coding / sense strand   5′ --- A - T - G - C - G - T --- 3′
+   template strand         3′ --- T - A - C - G - C - A --- 5′
+                                  (RNA Pol reads the template, 3′ → 5′)
+
+   resulting mRNA          5′ --- A - U - G - C - G - U --- 3′
+                                  (a copy of the coding strand; U replaces T)
+```
+
+It is tempting to look at this and assume the top strand of a chromosome is always the coding strand for every gene, with
+genes lined up like boxcars on a single one-way track:
+
+```text
+   5′ --- [ Gene 1 ] --- [ Gene 2 ] --- [ Gene 3 ] --- 3′
+```
+
+In that naive picture the bottom strand is just a passive template and nothing more. That assumption breaks in real
+biology.
+
+### The +/− coordinate system
+
+A chromosome is not a one-way street; it is a two-way highway, and its topology lets genes be encoded in either direction.
+
+When DNA was first sequenced, scientists needed a fixed coordinate system to work with it on a computer. The convention chosen
+was simply to label:
+
+* the top strand as the **+** (plus / forward) strand,
+* the bottom strand as the **−** (minus / reverse) strand.
+
+So the first connection to lock in:
+
+* the **+** strand is written 5′→3′, left to right;
+* the **−** strand is its antiparallel partner — reading left to right it runs 3′→5′ (its own 5′ end is over on the right).
+
+`+`/`−` are just dry map coordinates. They do not know or care where genes are.
+(strictly, + / - is defined by the reference assembly)
+
+### Genes point in both directions
+
+Because Pol can only build RNA 5′→3′, a gene's direction is fixed by *which strand it uses as its coding sequence*:
+
+* a gene whose coding sequence is on the **+** strand is transcribed left → right;
+* a gene whose coding sequence is on the **−** strand is transcribed right → left.
+
+```text
+   (+) 5′ ----[ Gene X ==========> ]------------------------------ 3′
+   (−) 3′ --------------------------[ <========== Gene Y ]-------- 5′
+
+        Gene X : coding sequence on the (+) strand, transcribed left → right
+        Gene Y : coding sequence on the (−) strand, transcribed right → left
+```
+
+So genes on the `+` and `−` strands point in opposite directions. 
+`+`/`−` is a label for the chromosome — not for where a gene sits or which way it reads.
+
+### Overlapping genes
+
+Transcription machinery just scans for promoter sequences and starts transcribing wherever it finds one. Genes can
+therefore physically overlap, sitting on whichever strand evolution happened to park them on. This is what finally
+shatters the boxcar model, and it is worth picturing concretely:
+
+```text
+   (+) 5′ --------[  GENE X  ==========>  ]----------------------- 3′
+   (−) 3′ --------------------[  <==========  GENE Y  ]----------- 5′
+                              ^^^^^^^^^^^^^^^
+                                overlap region
+```
+
+In the overlap region the exact same physical base pairs are in play, but they mean different things to each gene: for
+Gene X the top strand is the coding strand, for Gene Y the bottom strand is. Messier arrangements exist in the wild too:
+
+```text
+   (+) 5′ ----[ GENE X ]------------------------[ GENE Z ]-------- 3′
+   (−) 3′ ----------[  <========== GENE Y ==========  ]---------- 5′
+                    ^^^^^^                       ^^^^^^^
+                   overlap 1                     overlap 2
+```
+
+One upshot is that the same stretch of DNA can carry more than one transcript — more sequence information packed into the
+same physical bases.
+
+### Why we need a *relative* vocabulary
+
+One physical strand can be the *coding* strand for Gene X and, at the same time, the *template* strand for Gene Y.
+The words "coding" and "template" thus stop being useful once you zoom out to a whole chromosome — they only
+mean something relative to one chosen gene.
+
+Bioinformatics fixes this with a **relative vocabulary**. Every read coming off the sequencer is classified relative to a
+chosen feature — a gene, or a transposable element in our case:
+
+* **sense** — a read in the *same* orientation as that feature's mRNA transcript;
+* **antisense** — a read in the *opposite* orientation.
+
+### The relativity in one table
+
+Watch how a single read that maps to the **+** strand flips its label based entirely on which feature you score it against:
+
+| A read mapping to… | Scored against Gene X (points →) | Scored against Gene Y (points ←) |
+| --- | --- | --- |
+| **+** strand | **sense** — matches Gene X's transcript | **antisense** — opposite Gene Y's transcript |
+| **−** strand | **antisense** — opposite Gene X's transcript | **sense** — matches Gene Y's transcript |
+
+So a read is only "sense" or "antisense" *with respect to a particular feature*. The same read can be sense to one feature
+and antisense to an overlapping one. That relativity is the root of every strand subtlety in the rest of this document.
+
+Transposable elements are just another type of feature you score reads against. 
+A TE sitting *inside* — or pointing into — an active gene is exactly the case where one physical read can be:
+a) "the TE's own transcript"
+b) or "the host gene bleeding through," 
+... depending only on orientation. 
+
+Untangling that is the whole reason the strand machinery is so important in TE bioinformatics.
+
+**[textbook, with a touch of personal pain — grade A.]**
+
+Further reading:
+
+* <https://github.com/igordot/genomics/blob/master/notes/rna-seq-strand.md>
+* <https://www.youtube.com/watch?v=gMJqZPzKhzc>
 
 ---
 
