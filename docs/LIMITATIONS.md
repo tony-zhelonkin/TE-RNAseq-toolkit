@@ -16,6 +16,7 @@ featureCounts on a grouped, exon-subtracted SAF where
 
 The joint gene+TE matrix row-binds genes (`-s 2`) and TE-sense (`-s 2`) as mutually exclusive features, 
 with **no normalization applied at this stage — the delivered matrix is raw integer counts.**
+
 The *recommended* downstream normalization anchors per-sample scaling on the **gene rows only** —
 DESeq2 `estimateSizeFactors(dds, controlGenes = isGene)`, or equivalently edgeR `calcNormFactors(method = "TMM")`
 on a genes-only `DGEList` with its factors transplanted onto the combined object (`filterByExpr` per feature type) —
@@ -44,7 +45,7 @@ The logic is: are you even using the right *measurement ruler*? The way the size
 
 ### (b) BIOLOGY axis — the autonomous-vs-read-through verdict. **DOWNGRADED.**
 
-At subfamily resolution the antisense split gives strand **asymmetry**, not an autonomy verdict. 
+At subfamily resolution the antisense split gives strand **asymmetry**, autonomy verdict is a separate stage. 
 The `-s 1` channel is a strand-of-read aggregate over a whole subfamily.
 It may become a verdict on the autonomous vs read-through TE element only when paired with: 
 - the genic-context 
@@ -59,28 +60,51 @@ The whole point: matching the strand basis earns you (a) outright and only a *si
 ## 2. What matching REMOVES vs what it leaves (the residue)
 
 **Removes:**
-- antisense-oriented read-through (host transcription on the opposite strand) — it lands in the `-s 1` channel, out of the `-s 2` numerator;
-- the normalization-rate mismatch — the ruler problem of §1(a).
+- antisense-oriented read-through (host transcription on the opposite strand) — it lands in the `-s 1` channel,
+out of the `-s 2` numerator;
+- the normalization-rate mismatch — the ruler problem mentioned above.
 
 **Does NOT remove — the residue:**
 - **co-oriented (sense) read-through.** A TE sitting sense within a sense intron dumps host transcription straight into the `-s 2` channel. **No strand flag separates that at subfamily level** — the read is on the "right" strand. This is the locus/context problem, and the current grouped `Subfamily:Family:Class` SAF does not touch it. **[evidence: C — inference; consistent with the unsolved gene–TE disambiguation gap, METHODOLOGY §Open gaps #3.]**
 
-Matching the strand basis is a partial, not total, read-through defense. The part it cannot reach is exactly the part that needs Rung 2 (§5).
+Matching the strand basis may be only a partial read-through defense.
+The part it cannot reach is exactly the part that needs **genic-context stratification** — Rung 2 of the ladder, which I come back to in §5.
 
 ---
 
 ## 2a. Same-strand overlap silent loss (strand-split overlap-ambiguity)
 
-This is a **NEW** limitation, **distinct from and alongside** the co-oriented-readthrough residue of §2 — both unsolved at subfamily resolution, neither subsuming the other. **Silent loss is an annotation-geometry tax** (same-strand nested overlap dropped to Ambiguity); **co-oriented read-through is a transcription-context confound** (host transcription on the right strand). They are different failure modes; closing one does not close the other.
+This is another potential limitation, **distinct from and alongside** the one described above.
 
-**What it is.** A read overlapping two **same-strand** features is dropped as Ambiguity by `-s 0` *and* by both stranded passes (the strand-matched pass still sees ≥2 candidates → Ambiguity; the opposite pass sees none → NoFeatures). It contributes 0 to the unstranded, sense, and antisense counts alike. The toolkit's three-channel counting never sees it.
+**Silent loss is an annotation-geometry tax** (same-strand nested overlap dropped to Ambiguity); 
+**co-oriented read-through is a transcription-context confound** (host transcription on the right strand). 
 
-**The witnessed ledger.** Per-read `-R CORE` audit of the s0-ambiguous pile (sample 0019, reproduced on 0006): **AP 25.7% : M 6.1% : P(silent) 68.2%**; library-scale silent loss ≈ **9–10% of assigned TE signal**; antiparallel double-presence ≈ 4%; genuine reclaim ≈ 1%; bilateral negligible at **0.38%** (so the single-strand-drop assumption holds). Silent loss is the **dominant** fate of the ambiguous pile. **[evidence: A — per-read witness, reproduced on a 2nd sample; matches the synthetic truth table.]**
+They are different failure modes; closing one does not close the other, both unresolved at subfamily resolution. 
 
-**Conditional losslessness (A1).** A prior reading framed the strand split as "lossless / recovery-dominated" — that the `s0 − sense − anti` residual being one-sided proves no loss. **That framing is refuted.** The residual is lossless **only relative to s0's *assigned* set**; same-strand silent loss is **residual-invisible** by construction (it is 0 in all three channels) and carries **no GeneID in CORE** (target = NA). A zero or one-sided residual certifies *nothing* about loss. The visible recovery the residual *can* see is the antiparallel and asymmetric slice only; it sits on top of an unseen silent-loss pile roughly twice its size.
+**What it is.** A read overlapping two **same-strand** features is:
+* dropped as Ambiguity by `-s 0` 
+* *and* by both stranded passes (the strand-matched pass still sees ≥2 candidates → Ambiguity; the opposite pass sees none → NoFeatures). 
+It contributes 0 to the unstranded, sense, and antisense counts alike. The toolkit's three-channel counting never sees it.
+
+**The three fates of a strand-ambiguous read — what AP / M / P below mean.** When the unstranded pass (`-s 0`) cannot uniquely assign a read because it overlaps two annotated features at once, re-counting that read *by strand* sends it to exactly one of three fates:
+- **AP — antiparallel.** The two features are on **opposite strands**; the sense pass keeps one and the antisense pass keeps the other, so the read is counted **twice, under two different subfamilies** ("double-presence"). This is exactly what would be double-counted if the sense and antisense matrices were ever summed.
+- **M — asymmetric (genuine reclaim).** Splitting by strand **breaks the tie** — only one of the two features is on the matched strand — so the read becomes **uniquely assignable** and is legitimately **recovered**.
+- **P — parallel, same-strand (silent loss).** Both features are on the **same strand**, so no strand flag can separate them; the read is dropped by **all three** passes and never appears in any count — the case described just above. **Residual-invisible**, and the **dominant** fate.
+
+**The witnessed ledger.** A per-read audit of the strand-ambiguous reads (one sample, reproduced in a second) breaks down two ways — and **the two groupings below use different denominators, so don't mix them**: 
+* *Share of the ambiguous pile* (which fate befell an ambiguous read): **AP 25.7%  ·  M 6.1%  ·  P/silent 68.2%** — silent loss dominates; 
+* *Share of total assigned TE signal* (what actually reaches DE): silent loss (P) ≈ **9–10%**; 
+* antiparallel double-presence (AP) ≈ 4%; 
+* genuine reclaim (M) ≈ 1%; 
+* the rare "bilateral" case (a read overlapping ≥2 features on *both* strands) negligible at **0.38%** (so the single-strand-drop assumption holds). 
+
+Silent loss is the **dominant** fate of the ambiguous pile. 
+**[evidence: A — per-read witness, reproduced on a 2nd sample; matches the synthetic truth table.]**
+
+**Conditional losslessness (A1).** A prior reading framed the strand split as "lossless / recovery-dominated" — that the `s0 − sense − anti` residual being one-sided proves no loss. **That framing is refuted.** The residual is lossless **only relative to s0's *assigned* set**; same-strand silent loss is **residual-invisible** by construction (it is 0 in all three channels) and carries **no feature assignment at all** — the per-read audit records it as unassigned, not as any TE. A zero or one-sided residual certifies *nothing* about loss. The visible recovery the residual *can* see is the antiparallel and asymmetric slice only; it sits on top of an unseen silent-loss pile roughly twice its size.
 
 **The operational axioms live in [`QC.md`](./QC.md).** Axioms A1–A6, the warning-flag taxonomy, the directional meter, and the gate thresholds are owned there; they are not duplicated here. This section names the limitation and its boundary. The four cases this becomes **DANGEROUS** in — each by flag name in [`QC.md`](./QC.md) — are:
-- **summing channels** — `(sense + anti)` double-counts the antiparallel + A/A/A piles (`FLAG-SUM-CHANNELS`, A2); not bidirectional signal;
+- **summing channels** — `(sense + anti)` double-counts every read that lands in **both** channels under different subfamilies — the antiparallel (AP) double-presence pile (`FLAG-SUM-CHANNELS`, A2); not bidirectional signal;
 - **s0-denominating the ERV/satellite/DNA tail** — s0 drops their antiparallel reads to Ambiguity, a pathological denominator (`FLAG-S0-DENOM-ERV`, A3); denominate on the sense channel;
 - **applying gene size factors to the `-M` TE matrix** / comparing gene-vs-TE magnitude — different kernels (`FLAG-KERNEL-MISMATCH`, A5; see §6, METHODOLOGY §Combined);
 - **silent loss aligning with the design axis** — sample-stable loss cancels in cross-sample DE, but P_frac co-varies with net strand-offset (r = −0.50), so it must be checked against the design matrix before declaring condition-independence (`FLAG-SILENTLOSS-DESIGN`, A6).

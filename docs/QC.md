@@ -31,6 +31,8 @@ with `sense = -s2 Assigned`, `anti = -s1 Assigned`, `s0 = -s0 Assigned`.
 
 Per-read `-R CORE` witness, sample 0019 (high-depth); reproduced on 0006 (low-depth). The s0-ambiguous pile = 657,884 fragments in 0019, ≈17.5M library-wide.
 
+Each fragment is labelled by how many features the **sense** and **antisense** passes each assign it — written `(sense, antisense)`. A strand-ambiguous fragment then meets one of three fates: **AP — antiparallel** `(1,1)`, kept by *both* passes under *different* subfamilies (double-presence — what summing the channels would double-count); **M — asymmetric** `(2,1)/(1,2)`, where splitting by strand breaks the tie and the fragment is genuinely *reclaimed*; **P — parallel / same-strand** `(n,0)`, separable by no strand flag and so *silently lost* in all three passes — the dominant fate. The two numeric columns below use **different denominators** (share of the ambiguous pile vs share of total assigned signal) — do not mix them.
+
 | Regime | % of s0_Amb | Library-scale (of s0_Assigned) | Grade | Meaning |
 |---|---:|---:|:---:|---|
 | **AP — antiparallel (1,1)** | **25.7%** (0006: 24.7%) | ≈ **4%** | **A** | double-presence; +1 to EACH stranded pass, **different** GeneIDs (100% cross-family, 0% same-GeneID) |
