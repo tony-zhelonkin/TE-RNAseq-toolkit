@@ -38,11 +38,8 @@ In STAR, use `--outMultimapperOrder Random` *and* limit each read to one alignme
 *   **STAR Flags**: `--outFilterMultimapNmax 100 --outMultimapperOrder Random --outSAMmultNmax 1`, i.e. limit each read to one alignment
 *   **Counting:** Downstream counting (e.g., featureCounts) can treat all reads normally (integers).
 *   **Result:** Each read is assigned wholly to a single locus chosen at random.
-
 *   **Why Random-One works:** Teissandier 2019 benchmarked multimapper handling in featureCounts and found that random-one integer assignment performs on par with fractional (1/n) for family- and subfamily-level quantification, while unique-only undercounts young families (grade A — see the grading table). The dominant TE tools instead reach for EM or fractional assignment (TEtranscripts/Telescope/SQuIRE use EM; TE-Seq drives Telescope fractionally); Random-One is our integer-compatible choice, chosen so the counts drop straight into DESeq2/edgeR without rounding.
-
 *   **The gene and TE passes use different kernels.** The gene pass is unique-only (no `-M`), since a multimapper is genuinely unassignable to one gene; the TE passes are `-M` integer Random-One. These are different counting kernels, so the gene size factors are not the TE library scale — the basis of the gene-vs-TE caveat in §Combined and the `FLAG-KERNEL-MISMATCH` flag in [`QC.md`](./QC.md).
-
 *   **Each fragment contributes exactly one count.** By construction under `--outSAMmultNmax 1`, each fragment emits exactly one locus while `NH` records its true multiplicity; direct inspection of the alignments confirms no fragment emits more than one locus. The delivered sense (`-s 2`) integer matrix is therefore fragment-weighted: young high-copy families are not alignment-inflated. An alignment-weighted run could instead have inflated the youngest families several-fold (in proportion to their mean multiplicity) — a risk averted by construction, not a realized effect. See [`QC.md` §9](./QC.md) (kernel tracer, fragment-weighting argument, counterfactual-risk pattern) and `FLAG-ALIGNMENT-WEIGHTED`.
 *   **Accuracy:** This *random one-location* approach recovers TE expression accurately (correlation ~1 with true values benchmarks) [[1]].
 *   **Pros**:
@@ -135,6 +132,18 @@ The "unstranded counts much more" intuition therefore applies to TEs but not gen
 
 ---
 
+## Why featureCounts, and why the toolkit stops at the count matrix (design freedom)
+
+The reason to use STAR Random-One + featureCounts here is less about counting TEs *better* than the EM tools and more about what it lets you do *after* counting. featureCounts emits a clean **integer** matrix and nothing else — the toolkit hands you that matrix and stops, so **you own the statistical model.**
+
+That matters because several TE tools **bundle** their differential expression and lock it to a simple two-group comparison. TEtranscripts and SQuIRE run a fixed treatment-vs-control `~ condition` DESeq2 step; even TE-Seq, which is more flexible, fits an additive `~ [batch] + condition` only — no interactions, no factorial cells, no random effects, no custom contrasts. To ask a richer question through those tools you end up running several pairwise jobs and stitching their count tables together by row id — a workaround, not a design.
+
+Handing back a raw integer matrix removes that ceiling. The counts drop straight into edgeR / limma / DESeq2 with **any** design you can write — 2×2 factorial, interactions, blocking/batch, continuous covariates, random effects (`duplicateCorrelation` / `dream`) — and any `makeContrasts` you need. This design freedom is the toolkit's real contribution. In fairness it is not *unique* to featureCounts: atena's `SummarizedExperiment`, Telescope's counts, TEtranscripts' own `TEcount`, and SQuIRE's `--table_only` all emit matrices you can model yourself. What this toolkit adds is a **clean integer** matrix — no rounding of fractional or EM weights — that feeds your model natively, paired with the strand sense/antisense channel and the QC gate.
+
+The deliberate trade-off: Random-One collapses to a robust **subfamily** read-out and discards locus-level information, so locus questions need reprocessing (Rung 3 — see [`LIMITATIONS.md`](./LIMITATIONS.md)). Design freedom and the locus discard are two sides of the same minimal-by-choice instrument.
+
+---
+
 ## 3. Analysis Architecture: Combined vs. Separate
 
 Should genes and TEs be analyzed in the same matrix?
@@ -167,7 +176,9 @@ Beyond strandedness, the row-bound joint matrix also **mixes two counting kernel
 Reads mapping to TEs within genes (introns/UTRs) can be double-counted.
 *   **Combined Analysis:** A read overlapping a gene exon and a TE region could be counted for both if not handled.
 *   **Solution:** Remove TE SAF regions that overlap gene exons (as done in this toolkit's recommended workflow) or use tools like TEtranscripts that prioritize gene assignment [[3]].
-Most TE tools, like TEtranscripts, TEtranscripts** will not count a read toward a TE if it overlaps a gene exon, to avoid attributing host gene expression to TEs. 
+Most TE tools, like TEtranscripts, will not count a read toward a TE if it overlaps a gene exon, to avoid attributing host gene expression to TEs.
+
+**Exon subtraction is double-counting hygiene, not autonomy isolation.** Removing exon-overlapping TEs keeps host *exon* (mature-mRNA) expression from being miscounted as TE; it says nothing about read-through, which is mostly *intronic*. Intronic TEs are not exonic, so they remain in the SAF and still catch host read-through. Isolating the autonomous-candidate signal — intergenic vs intronic — is genic-context stratification (Rung 2 in [`LIMITATIONS.md`](./LIMITATIONS.md)), which the field handles by *labelling* TEs by context (e.g. TE-Seq's Exonic/Intronic/Intergenic), not by carving the annotation. (grade A — TE-Seq stratifies on genic context.) 
 
 ### Locus-level vs family-level annotation feature quantification
 *   **Subfamily Level (Recommended):** Most analyses focus on subfamily activity (e.g., all *L1Md_A* copies). Aggregating locus-level counts to subfamily improves robustness.

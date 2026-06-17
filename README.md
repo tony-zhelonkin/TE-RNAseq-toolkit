@@ -7,6 +7,14 @@ A toolkit for Transposable Element (TE) analysis in bulk RNA-seq data. This modu
 
 ---
 
+## Why this toolkit
+
+It is deliberately minimal: STAR Random-One + featureCounts produce a clean **integer** count matrix of TE subfamilies, and the toolkit hands you that matrix and stops — **you own the statistical model.** Most TE tools bundle their differential expression and lock it to a two-group comparison (TEtranscripts, SQuIRE) or an additive condition-only design (TE-Seq); emitting a raw integer matrix instead lets the counts drop straight into edgeR / limma / DESeq2 with *any* design — 2×2 factorial, interactions, blocking, random effects, arbitrary contrasts. That design freedom — paired with transparent, evidence-graded methodology, a strand sense/antisense channel, and a documented QC gate — is the point.
+
+It is **complementary to, not a replacement for, the heavier pipelines.** Reach for TE-Seq / Telescope when you need locus identity and a bundled three-axis autonomy verdict; reach for this toolkit when you want a robust subfamily-level read-out that plugs into your own design and your own stats, with every choice graded and the boundaries named (see [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md)). Random-One trades away locus-level resolution for that robustness and simplicity — a deliberate choice, not an oversight.
+
+---
+
 ## Key Features
 
 - **Dual-Mode Analysis**:
@@ -69,6 +77,8 @@ To use **Combined Mode**, gene and TE annotations must not overlap. Overlapping 
 **Recommended Workflow:**
 1.  **Grouped SAF**: Create a SAF file where `GeneID` is the TE group (e.g., `HAL1:L1:LINE`) rather than the unique locus ID.
 2.  **Filter Exons**: Remove TE loci that overlap with annotated gene exons using `bedtools subtract`.
+
+> **Exon subtraction is double-counting hygiene, not autonomy isolation.** It makes genes and TEs mutually exclusive so no read is double-counted — it does *not* remove read-through TEs. Read-through is mostly *intronic*, and intronic TEs are not exonic, so they remain; separating autonomous (intergenic) from read-through-exposed (intronic) TEs is a later genic-context step (see [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) §5).
 
 ### 3. Feature Counting
 This toolkit expects counts generated with specific handling for TEs vs Genes:
