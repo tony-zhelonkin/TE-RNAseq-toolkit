@@ -70,6 +70,8 @@ echo "snapshot: $SNAP"
 mkdir -p "$SNAP"
 cd "$SNAP"
 
+FETCHED=0   # set when bytes are actually written; guards the provenance block below
+
 verify() {  # verify <file>
   local f="$1" want="${MD5[$1]}" got
   got=$(md5sum "$f" | cut -d' ' -f1)
@@ -81,8 +83,10 @@ for f in "${!URL[@]}"; do
   # Download to .part and rename only on success.  A truncated $f would otherwise be kept by
   # the [ -f ] guard and fail md5 on every subsequent run.  -s: the meter wrecks nohup logs.
   if [ ! -f "$f" ]; then
+    rm -f "$f.part"                       # a stale .part would carry its old mode through the mv
     curl -fsSL --retry 3 -o "$f.part" "${URL[$f]}"
     mv "$f.part" "$f"
+    FETCHED=1
   fi
   verify "$f"
 done
@@ -90,9 +94,23 @@ done
 TE=GRCm39_Ensembl_rmsk_TE.gtf.gz
 if [ ! -f "$TE" ]; then
   [ -n "$TE_GTF_SRC" ] || { echo "ERROR: $TE absent and --te-gtf not given. See README.md." >&2; exit 1; }
-  cp "$TE_GTF_SRC" "$TE.part" && mv "$TE.part" "$TE"
+  # install -m, not cp: cp propagates the source file mode and ignores umask, and the
+  # canonical TE GTF is 644 -- which would land non-group-writable in a shared cache.
+  rm -f "$TE.part"
+  install -m 664 "$TE_GTF_SRC" "$TE.part" && mv "$TE.part" "$TE"
+  FETCHED=1
 fi
 verify "$TE"
+
+# A re-run over an existing snapshot must NOT rewrite produced_by: that field exists to name the
+# script version that produced these bytes, and relabelling it with the re-run's SHA destroys the
+# only thing it is for.  Revalidation is a read-only operation.
+if [ -f MANIFEST.json ] && [ "$FETCHED" -eq 0 ]; then
+  echo "  manifest preserved -- nothing fetched, provenance left intact"
+  echo "current -> mm39_$DATE"
+  ln -sfn "mm39_$DATE" "$DEST/current"
+  exit 0
+fi
 
 cat > MANIFEST.json <<JSON
 {

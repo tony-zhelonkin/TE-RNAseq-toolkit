@@ -38,8 +38,13 @@ State that namespace explicitly and verify contig names and lengths against the 
 
 ## Provenance
 
-Every source file is md5-pinned, and every artifact records the md5s of its inputs plus the git SHA
-of the script that produced it — `produced_by.git_sha` in `MANIFEST.json`. A mismatch is a hard error.
+Every source file is md5-pinned, and **an md5 mismatch is a hard error** — the fetch aborts.
+
+Every artifact also records the git SHA of the script that produced it, as
+`produced_by.git_sha` in `MANIFEST.json`. That is **recorded, not enforced**: nothing currently
+checks it, and it falls back to `"unknown"` outside a git checkout. It is provenance for a human
+reading the manifest, not a gate. A re-run over an existing snapshot deliberately leaves
+`produced_by` untouched, so the SHA always names the version that produced the bytes.
 
 The md5 pins prove **byte identity only**. They do not establish the RepeatMasker version or the
 reconstruction provenance of the carried TE GTF, which has no stable upstream URL. That gap is real
