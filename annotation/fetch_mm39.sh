@@ -70,7 +70,7 @@ verify() {  # verify <file>
 }
 
 for f in "${!URL[@]}"; do
-  [ -f "$f" ] || curl -fSL --retry 3 -o "$f" "${URL[$f]}"
+  [ -f "$f" ] || curl -fsSL --retry 3 -o "$f" "${URL[$f]}"
   verify "$f"
 done
 
