@@ -10,6 +10,14 @@
 # a failed fetch.
 set -euo pipefail
 
+# Shared caches are group-writable by convention (cistarget, coresh are drwxrwsr-x).
+umask 002
+
+# This script IS the provenance for every derived artifact, so record which version ran.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FETCHER_SHA="$(git -C "$SELF_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+FETCHER_DESCRIBE="$(git -C "$SELF_DIR" describe --tags --always --dirty 2>/dev/null || echo unknown)"
+
 DEST=""
 DATE=""
 TE_GTF_SRC="${TE_GTF_SRC:-}"
@@ -70,14 +78,19 @@ verify() {  # verify <file>
 }
 
 for f in "${!URL[@]}"; do
-  [ -f "$f" ] || curl -fsSL --retry 3 -o "$f" "${URL[$f]}"
+  # Download to .part and rename only on success.  A truncated $f would otherwise be kept by
+  # the [ -f ] guard and fail md5 on every subsequent run.  -s: the meter wrecks nohup logs.
+  if [ ! -f "$f" ]; then
+    curl -fsSL --retry 3 -o "$f.part" "${URL[$f]}"
+    mv "$f.part" "$f"
+  fi
   verify "$f"
 done
 
 TE=GRCm39_Ensembl_rmsk_TE.gtf.gz
 if [ ! -f "$TE" ]; then
   [ -n "$TE_GTF_SRC" ] || { echo "ERROR: $TE absent and --te-gtf not given. See README.md." >&2; exit 1; }
-  cp -n "$TE_GTF_SRC" "$TE"
+  cp "$TE_GTF_SRC" "$TE.part" && mv "$TE.part" "$TE"
 fi
 verify "$TE"
 
@@ -102,6 +115,12 @@ cat > MANIFEST.json <<JSON
 $(for f in GRCm39.genome.fa.gz gencode.vM37.primary_assembly.annotation.gtf.gz "$TE"; do
     printf '    "%s": "%s",\n' "$f" "${MD5[$f]}"; done | sed '$ s/,$//')
   },
+  "produced_by": {
+    "script": "TE-RNAseq-toolkit/annotation/fetch_mm39.sh",
+    "git_sha": "$FETCHER_SHA",
+    "git_describe": "$FETCHER_DESCRIBE"
+  },
+  "te_gtf_source_path": "${TE_GTF_SRC:-already-present-in-snapshot}",
   "file_count": 3,
   "total_size_bytes": $(du -bc GRCm39.genome.fa.gz gencode.vM37.primary_assembly.annotation.gtf.gz "$TE" | tail -1 | cut -f1)
 }

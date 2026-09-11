@@ -21,14 +21,29 @@ attack read-through contamination; see `docs/LIMITATIONS.md`.
 The genome and gene GTF are `chr`-prefixed. The TE GTF is Ensembl-style unprefixed.
 **All derived artifacts normalise to unprefixed.**
 
-This is load-bearing. featureCounts reconciles the prefix silently, so Layer 1 tolerates a
-mismatch. `bedtools`, TElocal and Telescope do not — they return zero overlaps and no
-warning. Layer 2 and Layer 3 builds therefore assert the namespace rather than assume it.
+This is load-bearing. featureCounts reconciles the prefix silently — measured: the same SAF rows
+prefixed and unprefixed give byte-identical per-feature counts and identical `Unassigned_*` buckets,
+with no warning — so Layer 1 tolerates a mismatch. `bedtools`, TElocal and Telescope do not; they
+return zero overlaps and no warning. Layer 2 and Layer 3 builds therefore **assert** the namespace
+rather than assume it, and assert a nonzero intersection: a shared-scaffold subset alone can pass a
+naive non-empty check.
+
+**Do not treat featureCounts' tolerance as a guarantee.** It is undocumented upstream, unpinned, and
+a prefix alias only — a `chrM` versus `MT` rename is a different failure and is not absorbed.
+
+## Layer 3 namespace
+
+The EM annotation must match the **BAM**, which is `chr`-prefixed, not the unprefixed derived SAFs.
+State that namespace explicitly and verify contig names and lengths against the BAM header.
 
 ## Provenance
 
-Every source file is md5-pinned and every derived artifact records the md5s of its inputs
-plus the git SHA of the script that produced it. A mismatch is a hard error.
+Every source file is md5-pinned, and every artifact records the md5s of its inputs plus the git SHA
+of the script that produced it — `produced_by.git_sha` in `MANIFEST.json`. A mismatch is a hard error.
+
+The md5 pins prove **byte identity only**. They do not establish the RepeatMasker version or the
+reconstruction provenance of the carried TE GTF, which has no stable upstream URL. That gap is real
+and unclosed.
 
 This exists because the previously delivered SAF was exon-subtracted against a filtered
 gene GTF from a project output directory that no longer exists, with no record. That build
