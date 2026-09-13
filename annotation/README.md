@@ -1,55 +1,20 @@
 # annotation
 
-Builds the reference artifacts the TE methodology consumes. Logic lives here and is
-git-tagged; the bytes live in a reference cache and carry a manifest pointing back at the
-tag that produced them.
+**The TE annotation build lives in its own repo: https://github.com/Mogilenko-Lab/te-tracks**
 
-## Layers
+`te-tracks` builds reproducible TE annotation tracks from RepeatMasker. One canonical table holds
+one row per TE locus, and every delivered track is a projection of it, so bulk RNA-seq, single-cell
+RNA and single-cell ATAC share one subfamily universe and one locus identity.
 
-| Layer | Artifact | Consumed by | Script |
-|---|---|---|---|
-| **0** sources | genome FASTA, gene GTF, TE GTF | everything | `fetch_mm39.sh` |
-| **1** subfamily | grouped, exon-subtracted SAF | gene + TE sense/antisense counting | *pending* |
-| **2** genic context | intronic / adjacent / intergenic SAFs + distance table | the intergenic-survival test | *pending* |
-| **3** locus | TElocal `.locInd` + strand-reversed twin | locus-level EM | *pending* |
+This directory holds the pointer. The science stays here, in
+`docs/{METHODOLOGY,BIOLOGY,LIMITATIONS,QC}.md`.
 
-Layer 1 is the production annotation. Layers 2 and 3 re-count or re-align the same data to
-attack read-through contamination; see `docs/LIMITATIONS.md`.
+## Consuming the tracks
 
-## Contig namespace
+Reference roots carry a dated snapshot and a `current` symlink:
 
-The genome and gene GTF are `chr`-prefixed. The TE GTF is Ensembl-style unprefixed.
-**All derived artifacts normalise to unprefixed.**
+    /data2/users/shared/refcache/te_mm39/current          local
+    /gpfs/data/rathmell-lab/data/refdata/te_mm39/current  CRI
 
-This is load-bearing. featureCounts reconciles the prefix silently — measured: the same SAF rows
-prefixed and unprefixed give byte-identical per-feature counts and identical `Unassigned_*` buckets,
-with no warning — so Layer 1 tolerates a mismatch. `bedtools`, TElocal and Telescope do not; they
-return zero overlaps and no warning. Layer 2 and Layer 3 builds therefore **assert** the namespace
-rather than assume it, and assert a nonzero intersection: a shared-scaffold subset alone can pass a
-naive non-empty check.
-
-**Do not treat featureCounts' tolerance as a guarantee.** It is undocumented upstream, unpinned, and
-a prefix alias only — a `chrM` versus `MT` rename is a different failure and is not absorbed.
-
-## Layer 3 namespace
-
-The EM annotation must match the **BAM**, which is `chr`-prefixed, not the unprefixed derived SAFs.
-State that namespace explicitly and verify contig names and lengths against the BAM header.
-
-## Provenance
-
-Every source file is md5-pinned, and **an md5 mismatch is a hard error** — the fetch aborts.
-
-Every artifact also records the git SHA of the script that produced it, as
-`produced_by.git_sha` in `MANIFEST.json`. That is **recorded, not enforced**: nothing currently
-checks it, and it falls back to `"unknown"` outside a git checkout. It is provenance for a human
-reading the manifest, not a gate. A re-run over an existing snapshot deliberately leaves
-`produced_by` untouched, so the SHA always names the version that produced the bytes.
-
-The md5 pins prove **byte identity only**. They do not establish the RepeatMasker version or the
-reconstruction provenance of the carried TE GTF, which has no stable upstream URL. That gap is real
-and unclosed.
-
-This exists because the previously delivered SAF was exon-subtracted against a filtered
-gene GTF from a project output directory that no longer exists, with no record. That build
-is not reproducible and must not be reused.
+`MANIFEST.json` in each snapshot records the source md5s, the output md5s and the builder git SHA.
+`te-tracks/docs/OUTPUTS.md` states every file, its columns and its coordinate convention.
