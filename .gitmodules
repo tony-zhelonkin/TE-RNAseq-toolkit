@@ -1,0 +1,4 @@
+[submodule "te-tracks"]
+	path = te-tracks
+	url = https://github.com/Mogilenko-Lab/te-tracks.git
+	branch = main

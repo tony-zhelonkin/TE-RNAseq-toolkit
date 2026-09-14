@@ -8,6 +8,19 @@ This module supports both **combined** (genes + TEs) and **separate** (TE-only) 
 
 ---
 
+## Annotation tracks
+
+The TE annotation build is the `te-tracks` submodule — [Mogilenko-Lab/te-tracks](https://github.com/Mogilenko-Lab/te-tracks).
+
+    git submodule update --init --recursive
+
+It builds reproducible tracks from RepeatMasker: one canonical table with one row per TE locus, and
+generated views for bulk RNA-seq, single-cell RNA and single-cell ATAC. Every build carries a
+`BUILD_ID`, so an analysis cites one id and gets exactly those bytes. `te-tracks/docs/` holds the
+provenance, the decisions, the outputs and the release contract.
+
+The science stays here, in `docs/{METHODOLOGY,BIOLOGY,LIMITATIONS,QC}.md`.
+
 ## Why this toolkit
 
 It is deliberately minimal: STAR Random-One + featureCounts produce a clean **integer** count matrix of TE subfamilies, 
